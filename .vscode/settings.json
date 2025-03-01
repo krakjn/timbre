@@ -1,0 +1,23 @@
+{
+    "editor.tokenColorCustomizations": {
+        "textMateRules": [
+            {
+                "scope": [
+                    "comment",
+                    "comment.block",
+                    "comment.line",
+                    "comment.block.documentation"
+                ],
+                "settings": {
+                    "fontStyle": ""
+                }
+            }
+        ]
+    },
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/inc",
+    ],
+    "files.associations": {
+        "regex": "cpp"
+    }
+} 
