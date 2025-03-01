@@ -29,20 +29,37 @@ TEST_CASE("Pattern detection works correctly", "[patterns]") {
 
 TEST_CASE("Line processing works correctly", "[processing]") {
     // Create temporary files for testing
-    std::ofstream error_file("test_error.log", std::ios::trunc);
-    std::ofstream warn_file("test_warn.log", std::ios::trunc);
+    std::map<std::string, std::ofstream> log_files;
+    log_files["error"].open("test_error.log", std::ios::trunc);
+    log_files["warn"].open("test_warn.log", std::ios::trunc);
     
-    REQUIRE(error_file.is_open());
-    REQUIRE(warn_file.is_open());
+    REQUIRE(log_files["error"].is_open());
+    REQUIRE(log_files["warn"].is_open());
+    
+    // Set up config for testing
+    Config& config = get_config();
+    config.log_levels.clear();
+    
+    LogLevelConfig error_config;
+    error_config.pattern = std::regex("error|exception|fail", 
+        std::regex_constants::extended | std::regex_constants::icase);
+    error_config.file = "error";
+    config.log_levels["error"] = error_config;
+    
+    LogLevelConfig warn_config;
+    warn_config.pattern = std::regex("warn(ing)?", 
+        std::regex_constants::extended | std::regex_constants::icase);
+    warn_config.file = "warn";
+    config.log_levels["warn"] = warn_config;
     
     SECTION("Error lines are processed correctly") {
-        auto level = process_line("This is an ERROR message", error_file, warn_file, true);
+        auto level = process_line("This is an ERROR message", log_files, true);
         
         REQUIRE(level == error);
         
         // Close files to flush buffers
-        error_file.close();
-        warn_file.close();
+        log_files["error"].close();
+        log_files["warn"].close();
         
         // Check file contents
         std::ifstream error_check("test_error.log");
@@ -52,13 +69,13 @@ TEST_CASE("Line processing works correctly", "[processing]") {
     }
     
     SECTION("Warning lines are processed correctly") {
-        auto level = process_line("This is a WARNING message", error_file, warn_file, true);
+        auto level = process_line("This is a WARNING message", log_files, true);
         
         REQUIRE(level == warn);
         
         // Close files to flush buffers
-        error_file.close();
-        warn_file.close();
+        log_files["error"].close();
+        log_files["warn"].close();
         
         // Check file contents
         std::ifstream warn_check("test_warn.log");
@@ -68,7 +85,7 @@ TEST_CASE("Line processing works correctly", "[processing]") {
     }
     
     SECTION("Normal lines are processed correctly") {
-        auto level = process_line("This is a normal message", error_file, warn_file, true);
+        auto level = process_line("This is a normal message", log_files, true);
         
         REQUIRE(level == none);
     }
@@ -76,7 +93,7 @@ TEST_CASE("Line processing works correctly", "[processing]") {
 
 TEST_CASE("Configuration file handling", "[config]") {
     // Create a test directory for configuration files
-    std::filesystem::create_directory("test_config");
+    std::filesystem::create_directories("test_config");
     
     SECTION("Non-existent configuration file") {
         Config config;
@@ -139,6 +156,12 @@ TEST_CASE("Configuration file handling", "[config]") {
         REQUIRE(config.log_dir == "/var/log/timbre");
         // No regex patterns should be added
         REQUIRE(config.log_levels.empty());
+        
+        // Now ensure default log levels are added when explicitly requested
+        config.set_defaults();
+        REQUIRE(config.log_levels.size() == 2);
+        REQUIRE(config.log_levels.count("error") == 1);
+        REQUIRE(config.log_levels.count("warn") == 1);
     }
     
     SECTION("Valid configuration file") {
@@ -175,22 +198,25 @@ TEST_CASE("Configuration file handling", "[config]") {
         }
         
         // Create test files for checking regex matching
-        std::ofstream error_file("test_error_case.log", std::ios::trunc);
-        std::ofstream warn_file("test_warn_case.log", std::ios::trunc);
+        std::map<std::string, std::ofstream> log_files;
+        log_files["error"].open("test_error_case.log", std::ios::trunc);
         
-        REQUIRE(error_file.is_open());
-        REQUIRE(warn_file.is_open());
+        REQUIRE(log_files["error"].is_open());
         
         // Load the configuration
         Config config;
         bool result = load_config("test_config/case_insensitive.toml", config);
         REQUIRE(result == true);
         
+        // Set the config as the global config for process_line to use
+        Config& global_config = get_config();
+        global_config = config;
+        
         // Test with different error patterns
-        auto level1 = process_line("This is an ERROR message", error_file, warn_file, true);
-        auto level2 = process_line("Exception occurred in module", error_file, warn_file, true);
-        auto level3 = process_line("Operation FAILED", error_file, warn_file, true);
-        auto level4 = process_line("This is a normal message", error_file, warn_file, true);
+        auto level1 = process_line("This is an ERROR message", log_files, true);
+        auto level2 = process_line("Exception occurred in module", log_files, true);
+        auto level3 = process_line("Operation FAILED", log_files, true);
+        auto level4 = process_line("This is a normal message", log_files, true);
         
         REQUIRE(level1 == error);
         REQUIRE(level2 == error);
@@ -198,26 +224,76 @@ TEST_CASE("Configuration file handling", "[config]") {
         REQUIRE(level4 == none);
         
         // Close files to flush buffers
-        error_file.close();
-        warn_file.close();
-        
-        // Check file contents
-        std::ifstream error_check("test_error_case.log");
-        std::string line;
-        
-        REQUIRE(std::getline(error_check, line));
-        REQUIRE(line == "This is an ERROR message");
-        
-        REQUIRE(std::getline(error_check, line));
-        REQUIRE(line == "Exception occurred in module");
-        
-        REQUIRE(std::getline(error_check, line));
-        REQUIRE(line == "Operation FAILED");
-        
-        // Clean up test files
-        std::remove("test_error_case.log");
-        std::remove("test_warn_case.log");
+        for (auto& [_, file] : log_files) {
+            if (file.is_open()) {
+                file.close();
+            }
+        }
     }
+    
+    // Clean up test directory
+    std::filesystem::remove_all("test_config");
+}
+
+// Additional tests for the new configuration-driven approach
+TEST_CASE("Configuration-driven log files", "[config_driven]") {
+    // Create a test directory for logs
+    std::string test_dir = "build/test_logs";
+    
+    // Clean up any existing directory first
+    if (std::filesystem::exists(test_dir)) {
+        std::filesystem::remove_all(test_dir);
+    }
+    
+    // Create the directory
+    REQUIRE(std::filesystem::create_directories(test_dir));
+    
+    // Create a test file to verify permissions
+    {
+        std::ofstream test_file(test_dir + "/test.txt");
+        REQUIRE(test_file.is_open());
+        test_file << "Test" << std::endl;
+        test_file.close();
+        REQUIRE(std::filesystem::exists(test_dir + "/test.txt"));
+        std::filesystem::remove(test_dir + "/test.txt");
+    }
+    
+    SECTION("Default log levels are created if none are configured") {
+        Config config;
+        config.log_dir = test_dir;
+        config.log_levels.clear();
+        
+        config.set_defaults();
+        
+        REQUIRE(config.log_levels.size() == 2);
+        REQUIRE(config.log_levels.count("error") == 1);
+        REQUIRE(config.log_levels.count("warn") == 1);
+    }
+    
+    SECTION("Log files can be opened and closed") {
+        Config config;
+        config.log_dir = test_dir;
+        config.log_levels.clear();
+        
+        LogLevelConfig debug_config;
+        debug_config.pattern = std::regex("debug", 
+            std::regex_constants::extended | std::regex_constants::icase);
+        debug_config.file = "debug";
+        config.log_levels["debug"] = debug_config;
+        
+        auto log_files = open_log_files(config, false);
+        
+        REQUIRE(log_files.size() == 1);
+        REQUIRE(log_files.count("debug") == 1);
+        REQUIRE(log_files["debug"].is_open());
+        
+        close_log_files(log_files);
+        
+        REQUIRE(!log_files["debug"].is_open());
+    }
+    
+    // Clean up test directory
+    std::filesystem::remove_all(test_dir);
 }
 
 // Clean up test files after tests

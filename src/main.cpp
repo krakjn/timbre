@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdio>  // Keep for stdout buffering
 #include "CLI/CLI11.hpp"
 #include "timbre/log.h"
 #include "timbre/timbre.h"
@@ -29,12 +30,10 @@ int main(int argc, char** argv) {
 
     set_log_level(app.count("-v"));
     
-    // Load configuration from file if specified
+    auto& config = get_config();
     if (!config_file.empty()) {
         log(LogLevel::INFO, "Loading configuration from: " + config_file);
         
-        // Load the configuration
-        auto& config = get_config();
         if (!load_config(config_file, config)) {
             log(LogLevel::ERROR, "Failed to load configuration from: " + config_file);
             return 1;
@@ -44,31 +43,24 @@ int main(int argc, char** argv) {
         if (app.count("-d") == 0 && app.count("--log-dir") == 0) {
             log_dir = config.log_dir;
             log(LogLevel::INFO, "Using log directory from config: " + log_dir);
+        } else {
+            // Update config with command line log_dir
+            config.log_dir = log_dir;
         }
-    }
-
-    // Create log directory if it doesn't exist
-    try {
-        if (!std::filesystem::exists(log_dir)) {
-            log(LogLevel::INFO, "Creating log directory: " + log_dir);
-            std::filesystem::create_directories(log_dir);
-        }
-    } catch (const std::filesystem::filesystem_error& e) {
-        log(LogLevel::ERROR, "Failed to create log directory: " + std::string(e.what()));
-        return 1;
-    }
-
-    std::ios::openmode mode = append ? std::ios::app : std::ios::trunc;
-    std::ofstream warn_file(log_dir + "/warn", mode);
-    std::ofstream error_file(log_dir + "/error", mode);
-    
-    if (!warn_file.is_open()) {
-        log(LogLevel::ERROR, "Failed to open warning log file");
-        return 1;
+    } else {
+        config.log_dir = log_dir;
     }
     
-    if (!error_file.is_open()) {
-        log(LogLevel::ERROR, "Failed to open error log file");
+    // Ensure we have at least default log levels
+    config.set_defaults();
+
+    // Set stdout to line buffered for tee-like behavior
+    setvbuf(stdout, NULL, _IOLBF, 0);
+
+    // Open log files based on configuration
+    auto log_files = open_log_files(config, append);
+    if (log_files.empty()) {
+        log(LogLevel::ERROR, "Failed to open log files");
         return 1;
     }
 
@@ -76,23 +68,22 @@ int main(int argc, char** argv) {
 
     std::string line;
     size_t line_count = 0;
-    size_t error_count = 0;
-    size_t warning_count = 0;
+    std::map<std::string, size_t> level_counts;
     
     while (std::getline(std::cin, line)) {
         line_count++;
-        
-        auto level = process_line(line, error_file, warn_file, quiet);
-        if (level == error) {
-            error_count++;
-        } else if (level == warn) {
-            warning_count++;
+        auto level = process_line(line, log_files, quiet);
+        if (level != none) {
+            level_counts[level.name()]++;
         }
     }
     
     log(LogLevel::INFO, "Processing complete. Lines processed: " + std::to_string(line_count));
-    log(LogLevel::INFO, "Errors logged: " + std::to_string(error_count));
-    log(LogLevel::INFO, "Warnings logged: " + std::to_string(warning_count));
+    for (const auto& [level_name, count] : level_counts) {
+        log(LogLevel::INFO, level_name + " lines logged: " + std::to_string(count));
+    }
+
+    close_log_files(log_files);
 
     return 0;
 } 

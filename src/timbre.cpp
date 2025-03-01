@@ -22,57 +22,29 @@ bool matches_regex(const std::string& line, const std::regex& pattern) {
     }
 }
 
-ConfigLogLevel process_line(const std::string& line, std::ofstream& error_file, std::ofstream& warn_file, bool quiet) {
+ConfigLogLevel process_line(const std::string& line, std::map<std::string, std::ofstream>& log_files, bool quiet) {
+    // Always write to stdout (tee behavior) unless quiet mode is enabled
     if (!quiet) {
-        std::cout << line << std::endl;  // Print to terminal unless suppressed
+        printf("%s\n", line.c_str());
+        fflush(stdout);
     }
 
-    try {
-        const auto& config = timbre::get_config();
-        
-        // First try regex patterns from configuration
-        if (!config.log_levels.empty()) {
-            for (const auto& [level_str, pattern] : config.log_levels) {
-                if (matches_regex(line, pattern)) {
-                    ConfigLogLevel level{level_str};
-                    
-                    if (level == error) {
-                        error_file << line << std::endl;
-                        if (error_file.fail()) {
-                            throw std::runtime_error("Failed to write to error log file");
-                        }
-                    } else if (level == warn) {
-                        warn_file << line << std::endl;
-                        if (warn_file.fail()) {
-                            throw std::runtime_error("Failed to write to warning log file");
-                        }
-                    }
-                    return level;
+    if (line.empty()) return none;
+
+    const auto& config = get_config();
+    
+    for (const auto& [level_name, level_config] : config.log_levels) {
+        if (matches_regex(line, level_config.pattern)) {
+            auto file_it = log_files.find(level_name);
+            if (file_it != log_files.end() && file_it->second.is_open()) {
+                file_it->second << line << std::endl;
+                if (!file_it->second.good()) {
+                    log(LogLevel::ERROR, "Failed to write to log file for level: " + level_name);
+                    return none;
                 }
             }
+            return ConfigLogLevel(level_name);
         }
-        
-        // Fallback to the old pattern matching if no regex patterns matched
-        static const std::regex error_pattern("error|exception|fail", 
-            std::regex_constants::extended | std::regex_constants::icase);
-        static const std::regex warn_pattern("warn(ing)?", 
-            std::regex_constants::extended | std::regex_constants::icase);
-            
-        if (matches_regex(line, error_pattern)) {
-            error_file << line << std::endl;
-            if (error_file.fail()) {
-                throw std::runtime_error("Failed to write to error log file");
-            }
-            return error;
-        } else if (matches_regex(line, warn_pattern)) {
-            warn_file << line << std::endl;
-            if (warn_file.fail()) {
-                throw std::runtime_error("Failed to write to warning log file");
-            }
-            return warn;
-        }
-    } catch (const std::exception& e) {
-        log(LogLevel::ERROR, std::string("Error processing line: ") + e.what());
     }
     
     return none;
