@@ -12,8 +12,8 @@ on:
       - 'Dockerfile'
 
 env:
-  # username is appended by default to the registry ghcr.io
-  IMAGE: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+  # GitHub automatically handles the container registry naming based on repository
+  IMAGE: ghcr.io/${{ github.repository }}
   PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
@@ -55,12 +55,9 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          # context: defaults to the root of the repository
-          # file: defaults to {context}/Dockerfile, there is no way to not provide context
-          # such as `docker build -t ${{ env.IMAGE }} - < Dockerfile`
+          context: .
           platforms: ${{ env.PLATFORMS }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
