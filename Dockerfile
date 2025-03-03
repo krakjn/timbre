@@ -4,33 +4,42 @@ RUN <<EOF
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y \
-    tzdata \
     build-essential \
+    ca-certificates \
+    clang-format \
+    clang-tidy \
     cmake \
-    git \
+    curl \
+    debhelper \
+    devscripts \
+    dh-make \
+    dpkg-dev \
+    fakeroot \
     g++ \
-    make
+    git \
+    libcurl4-openssl-dev \
+    make \
+    ninja-build \
+    nodejs \
+    npm \
+    pkg-config \
+    tzdata \
+    wget
+
+# Clean up apt cache
 rm -rf /var/lib/apt/lists/*
 EOF
 
-# WORKDIR /app
+# Install global npm packages
+RUN npm install -g @commitlint/cli @commitlint/config-conventional auto-changelog
 
-# # Copy source code
-# COPY . .
-
-# # Build the application
-# RUN <<EOF
-# mkdir -p build
-# cd build
-# cmake .. -DCMAKE_BUILD_TYPE=Release
-# make -j$(nproc)
-# EOF
-
-# # Create a directory for logs
-# RUN mkdir -p /.timbre
-
-# # Set the entrypoint to the timbre executable
-# ENTRYPOINT ["/app/build/timbre"]
-
-# # Default command line arguments (can be overridden)
-# CMD [] 
+# Install Catch2 test framework
+RUN <<EOF
+cd /opt
+git clone https://github.com/catchorg/Catch2.git
+cd Catch2
+git checkout v3.8.0
+cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
+cmake --build build --target install -j$(nproc)
+rm -rf /opt/Catch2
+EOF

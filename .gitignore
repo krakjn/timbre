@@ -1,2 +1,3 @@
-/build
+/.githooks
 /.timbre
+/build

@@ -18,7 +18,7 @@ all: $(BUILD_DIR)
 $(BUILD_DIR):
 	@echo "Creating build directory and generating build files..."
 	@mkdir -p $(BUILD_DIR)
-	@cd $(BUILD_DIR) && cmake .. -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DCMAKE_INSTALL_PREFIX=$(PREFIX)
+	@cd $(BUILD_DIR) && cmake .. -G Ninja -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DCMAKE_INSTALL_PREFIX=$(PREFIX)
 
 .PHONY: clean
 clean:
@@ -47,7 +47,7 @@ uninstall:
 
 .PHONY: test
 test:
-	@cd $(BUILD_DIR) && ctest
+	@cd $(BUILD_DIR) && ctest --output-on-failure
 
 .PHONY: run
 run: all
