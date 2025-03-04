@@ -1,39 +1,49 @@
-name: Timbre CI
+name: CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ '**' ]
+  pull_request:
+    branches: [ '**' ]
 
 jobs:
-  noop:
-    runs-on: ubuntu-latest
+  commitlint:
+    runs-on: ubuntu-latest # Host runner
+    container:
+      image: ghcr.io/krakjn/timbre
+      credentials:
+        username: krakjn
+        password: ${{ secrets.TIMBRE_TOKEN }} # has permissions
     steps:
-      - name: Nothing
-        run: echo "waiting for Docker image to be built..."
-
-  # commitlint:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@
-  #       with:
-  #         fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
-  #     - name: Lint commit messages
-  #       run: |
-  #         if [ "${{ github.event_name }}" = "pull_request" ]; then
-  #           npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
-  #         else
-  #           npx commitlint --from $(git rev-parse HEAD~10) --to HEAD --verbose || true
-  #         fi
+      - name: Lint commit messages
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+          else
+            npx commitlint --from $(git rev-parse HEAD~10) --to HEAD --verbose || true
+          fi
 
-  # build:
-  #   runs-on: ubuntu-latest
-  #   needs: commitlint
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+
+  build:
+    needs: [commitlint]
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/krakjn/timbre
+      credentials:
+        username: krakjn
+        password: ${{ secrets.TIMBRE_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       
-  #     - name: Build project
-  #       run: make
+      - name: Build
+        run: make
+      
+      - name: Test
+        run: make test
 
-  #     - name: Run tests
-  #       run: make test

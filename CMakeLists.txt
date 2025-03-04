@@ -8,7 +8,6 @@ versioning(${VERSION_FILE})
 
 project(timbre VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 
-# Define version variables for configuration
 set(TIMBRE_VERSION_MAJOR ${VERSION_MAJOR})
 set(TIMBRE_VERSION_MINOR ${VERSION_MINOR})
 set(TIMBRE_VERSION_PATCH ${VERSION_PATCH})
@@ -29,6 +28,7 @@ option(BUILD_TESTS "Build the test suite" ON)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/inc)
 
+# Build library (for testing only)
 add_library(timbre_lib STATIC
     src/log.cpp
     src/timbre.cpp
@@ -43,13 +43,12 @@ target_include_directories(timbre_lib PUBLIC
 add_executable(timbre src/main.cpp)
 target_link_libraries(timbre PRIVATE timbre_lib)
 
-install(TARGETS timbre DESTINATION bin)
-
-add_custom_command(
-    TARGET timbre POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/.timbre
-    COMMENT "Creating .timbre directory"
+# Installation rules
+install(TARGETS timbre
+    RUNTIME DESTINATION bin
 )
+
+include(cmake/debian.cmake)
 
 if(BUILD_TESTS)
     enable_testing()

@@ -1,3 +1,8 @@
-/.githooks
 /.timbre
 /build
+
+# commitlint 
+/.githooks
+/node_modules
+/package-lock.json
+/package.json

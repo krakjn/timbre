@@ -1,0 +1,8 @@
+[timbre]
+log_dir = "/var/log/timbre"
+
+[log_level]
+# filename = "regex" (case is ignored)
+debug = "debug"
+warn = "warn(ing)?"
+error = "error|exception|fail" 

@@ -9,26 +9,29 @@ BUILD_DIR = build
 PREFIX ?= /usr/local/bin
 NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
 
-# Default target is first target
-.PHONY: all
-all: $(BUILD_DIR)
-	@echo "Building timbre ($(BUILD_TYPE))..."
+.PHONY: default
+default: $(BUILD_DIR)
 	@cmake --build $(BUILD_DIR) -- -j$(NPROC)
 
 $(BUILD_DIR):
-	@echo "Creating build directory and generating build files..."
 	@mkdir -p $(BUILD_DIR)
 	@cd $(BUILD_DIR) && cmake .. -G Ninja -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DCMAKE_INSTALL_PREFIX=$(PREFIX)
 
 .PHONY: clean
 clean:
-	@echo "Cleaning build artifacts..."
-	@if [ -d "$(BUILD_DIR)" ]; then cmake --build $(BUILD_DIR) --target clean; fi
-
-.PHONY: distclean
-distclean:
-	@echo "Removing build directory..."
 	@rm -rf $(BUILD_DIR)
+
+.PHONY: deb
+deb: $(BUILD_DIR)
+	@cd $(BUILD_DIR) && cmake --build . --target package
+
+.PHONY: enter
+enter:
+	@docker run -it --rm \
+		-v $(PWD):/app \
+		-w /app \
+		--hostname timbre \
+		ghcr.io/krakjn/timbre:latest
 
 .PHONY: install
 install: all
@@ -37,7 +40,6 @@ install: all
 
 .PHONY: uninstall
 uninstall:
-	@echo "Uninstalling..."
 	@if [ -f "$(BUILD_DIR)/install_manifest.txt" ]; then \
 		xargs rm -f < "$(BUILD_DIR)/install_manifest.txt"; \
 	else \
@@ -49,20 +51,17 @@ uninstall:
 test:
 	@cd $(BUILD_DIR) && ctest --output-on-failure
 
-.PHONY: run
-run: all
-	@$(BUILD_DIR)/timbre
-
 .PHONY: help
 help:
 	@echo "Makefile for timbre project"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all        - Build the project (default)"
+	@echo "  <no arg>   - Build the project (default)"
 	@echo "  clean      - Clean build artifacts"
+	@echo "  deb        - Build Debian package"
+	@echo "  enter      - Enter Docker container"
 	@echo "  install    - Install the project to PREFIX (default: /usr/local)"
 	@echo "  uninstall  - Uninstall the project"
-	@echo "  run        - Build and run the executable"
 	@echo "  test       - Build and run the tests"
 	@echo "  help       - Show this help message"
 	@echo ""

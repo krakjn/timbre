@@ -1,5 +1,8 @@
 FROM ubuntu:22.04
 
+# OCI Annotations
+LABEL org.opencontainers.image.source="https://github.com/krakjn/timbre"
+
 RUN <<EOF
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
