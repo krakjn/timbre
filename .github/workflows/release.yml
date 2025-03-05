@@ -10,6 +10,9 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    outputs:
+      skip_release: ${{ steps.validate.outputs.skip_release }}
+      bump_type: ${{ steps.validate.outputs.bump_type }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -17,6 +20,7 @@ jobs:
           fetch-depth: 0
       
       - name: Validate PR template
+        id: validate
         if: github.event_name == 'pull_request'
         run: |
           # Check if PR description contains version bump fields
@@ -37,21 +41,24 @@ jobs:
           
           # Determine version bump type
           if grep -q "\[x\] MAJOR:" "$GITHUB_EVENT_PATH"; then
-            echo "BUMP_TYPE=major" >> $GITHUB_ENV
+            echo "bump_type=major" >> $GITHUB_OUTPUT
+            echo "skip_release=false" >> $GITHUB_OUTPUT
           elif grep -q "\[x\] MINOR:" "$GITHUB_EVENT_PATH"; then
-            echo "BUMP_TYPE=minor" >> $GITHUB_ENV
+            echo "bump_type=minor" >> $GITHUB_OUTPUT
+            echo "skip_release=false" >> $GITHUB_OUTPUT
           elif grep -q "\[x\] PATCH:" "$GITHUB_EVENT_PATH"; then
-            echo "BUMP_TYPE=patch" >> $GITHUB_ENV
+            echo "bump_type=patch" >> $GITHUB_OUTPUT
+            echo "skip_release=false" >> $GITHUB_OUTPUT
           else
-            echo "No version bump needed" >> $GITHUB_ENV
-            echo "SKIP_RELEASE=true" >> $GITHUB_ENV
+            echo "bump_type=none" >> $GITHUB_OUTPUT
+            echo "skip_release=true" >> $GITHUB_OUTPUT
           fi
 
   version:
     needs: validate
     if: |
       needs.validate.outcome == 'success' && 
-      ${{ needs.validate.outputs.SKIP_RELEASE }} != 'true'
+      ${{ needs.validate.outputs.skip_release }} != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -75,7 +82,7 @@ jobs:
           MINOR="${VERSION_PARTS[1]}"
           PATCH="${VERSION_PARTS[2]}"
           
-          case "${{ env.BUMP_TYPE }}" in
+          case "${{ needs.validate.outputs.bump_type }}" in
             "major")
               NEW_VERSION="$((MAJOR + 1)).0.0"
               ;;
@@ -116,7 +123,7 @@ jobs:
     needs: [ version, validate ]
     if: |
       needs.validate.outcome == 'success' && 
-      ${{ needs.validate.outputs.SKIP_RELEASE }} != 'true'
+      ${{ needs.validate.outputs.skip_release }} != 'true'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/krakjn/timbre
@@ -163,7 +170,7 @@ jobs:
     needs: [ build, validate ]
     if: |
       needs.validate.outcome == 'success' && 
-      ${{ needs.validate.outputs.SKIP_RELEASE }} != 'true'
+      ${{ needs.validate.outputs.skip_release }} != 'true'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/krakjn/timbre
