@@ -92,8 +92,52 @@ jobs:
           echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
           echo "skip_release=$SKIP_RELEASE" >> $GITHUB_OUTPUT
 
-  version:
+  get_version:
     needs: validate
+    if: ${{ needs.validate.outputs.skip_release != 'true' }}
+    runs-on: ubuntu-latest
+    outputs:
+      current_version: ${{ steps.parse_version.outputs.current_version }}
+      major: ${{ steps.parse_version.outputs.major }}
+      minor: ${{ steps.parse_version.outputs.minor }}
+      patch: ${{ steps.parse_version.outputs.patch }}
+      build: ${{ steps.parse_version.outputs.build }}
+      is_build_version: ${{ steps.parse_version.outputs.is_build_version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Parse version
+        id: parse_version
+        run: |
+          CURRENT_VERSION=$(cat pkg/version.txt)
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          
+          # Extract semantic version parts using regex
+          if [[ "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(?:\+([0-9]+))?$ ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+            PATCH="${BASH_REMATCH[3]}"
+            BUILD="${BASH_REMATCH[4]:-}"
+            
+            echo "major=$MAJOR" >> $GITHUB_OUTPUT
+            echo "minor=$MINOR" >> $GITHUB_OUTPUT
+            echo "patch=$PATCH" >> $GITHUB_OUTPUT
+            echo "build=$BUILD" >> $GITHUB_OUTPUT
+            
+            if [ -n "$BUILD" ]; then
+              echo "is_build_version=true" >> $GITHUB_OUTPUT
+            else
+              echo "is_build_version=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Error: Version format is invalid. Expected format: X.Y.Z or X.Y.Z+N"
+            echo "Current version: $CURRENT_VERSION"
+            exit 1
+          fi
+
+  version:
+    needs: [validate, get_version]
     if: ${{ needs.validate.outputs.skip_release != 'true' }}
     runs-on: ubuntu-latest
     permissions:
@@ -121,30 +165,21 @@ jobs:
             git remote add origin "https://x-access-token:${{ secrets.TIMBRE_TOKEN }}@github.com/krakjn/timbre.git"
           fi
       
-      - name: Get current version
-        id: get_version
-        run: |
-          VERSION=$(cat pkg/version.txt)
-          echo "current_version=$VERSION" >> $GITHUB_OUTPUT
-      
       - name: Bump version
         id: bump
         run: |
-          CURRENT_VERSION=${{ steps.get_version.outputs.current_version }}
           BUMP_TYPE="${{ needs.validate.outputs.bump_type }}"
+          MAJOR="${{ needs.get_version.outputs.major }}"
+          MINOR="${{ needs.get_version.outputs.minor }}"
+          PATCH="${{ needs.get_version.outputs.patch }}"
           
           if [ "$BUMP_TYPE" = "build" ]; then
             # For workflow_dispatch, add build number
-            BUILD_NUMBER=$(git rev-list --count HEAD)
-            NEW_VERSION="${CURRENT_VERSION}+${BUILD_NUMBER}"
+            NEW_BUILD_NUMBER=$(git rev-list --count HEAD)
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}+${NEW_BUILD_NUMBER}"
             echo "Bumping build number: $NEW_VERSION"
           else
             # For pull requests, bump according to the selected type
-            IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
-            MAJOR="${VERSION_PARTS[0]}"
-            MINOR="${VERSION_PARTS[1]}"
-            PATCH="${VERSION_PARTS[2]}"
-            
             case "$BUMP_TYPE" in
               "major")
                 NEW_VERSION="$((MAJOR + 1)).0.0"
@@ -233,7 +268,7 @@ jobs:
           retention-days: 7
 
   release:
-    needs: [build, version, validate]
+    needs: [build, version, get_version, validate]
     if: ${{ needs.validate.outputs.skip_release != 'true' }}
     runs-on: ubuntu-latest
     permissions:
@@ -264,22 +299,11 @@ jobs:
             git remote add origin "https://x-access-token:${{ secrets.TIMBRE_TOKEN }}@github.com/krakjn/timbre.git"
           fi
       
-      - name: Get version
-        id: get_version
-        run: |
-          VERSION=$(cat pkg/version.txt)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          if [ -z "${VERSION##*+*}" ]; then
-            echo "is_build=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_build=false" >> $GITHUB_OUTPUT
-          fi
-      
       - name: Generate changelog
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
 
-          # Pull before generating changelog to avoid non-fast-forward rejection
+          # Pull before generating changelog to avoid conflicts
           git pull
           
           if [ -n "$PREV_TAG" ]; then
@@ -300,7 +324,7 @@ jobs:
           fi
           
           git add CHANGELOG.md
-          git commit -m "docs: update changelog for ${{ steps.get_version.outputs.version }}"
+          git commit -m "docs: update changelog for ${{ needs.version.outputs.new_version }}"
           
           # Push to the appropriate branch
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -323,10 +347,10 @@ jobs:
           files: |
             build/*.deb
             CHANGELOG.md
-          draft: ${{ steps.get_version.outputs.is_build }}
+          draft: ${{ needs.get_version.outputs.is_build_version }}
           prerelease: false
-          tag_name: ${{ steps.get_version.outputs.version }}
-          title: Release ${{ steps.get_version.outputs.version }}
+          tag_name: ${{ needs.version.outputs.new_version }}
+          title: Release ${{ needs.version.outputs.new_version }}
           body: |
             See CHANGELOG.md for details.
             
@@ -334,7 +358,7 @@ jobs:
             
             ### Debian Package
             ```bash
-            sudo dpkg -i timbre_${{ steps.get_version.outputs.version }}*.deb
+            sudo dpkg -i timbre_${{ needs.version.outputs.new_version }}*.deb
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
