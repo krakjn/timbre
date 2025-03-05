@@ -20,6 +20,7 @@ apt-get install -y \
     fakeroot \
     g++ \
     git \
+    jq \
     libcurl4-openssl-dev \
     make \
     ninja-build \

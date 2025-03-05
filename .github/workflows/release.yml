@@ -22,36 +22,59 @@ jobs:
       - name: Validate PR template
         id: validate
         run: |
-          # Check if PR description contains version bump fields
-          if ! grep -q "\[ \] MAJOR:" "$GITHUB_EVENT_PATH" && \
-             ! grep -q "\[ \] MINOR:" "$GITHUB_EVENT_PATH" && \
-             ! grep -q "\[ \] PATCH:" "$GITHUB_EVENT_PATH" && \
-             ! grep -q "\[ \] NONE:" "$GITHUB_EVENT_PATH"; then
-            echo "Error: PR template is missing version bump fields"
-            exit 1
-          fi
+          BUMP_TYPE=none
+          SKIP_RELEASE=false
+
+          validate_pr() {
+              local pr_body="$1"
+              
+              if ! echo "$pr_body" | grep -q "\[.\] MAJOR:" && \
+                ! echo "$pr_body" | grep -q "\[.\] MINOR:" && \
+                ! echo "$pr_body" | grep -q "\[.\] PATCH:" && \
+                ! echo "$pr_body" | grep -q "\[.\] NONE:"; then
+                  echo "Error: PR template is missing version bump fields"
+                  echo "Expected fields:"
+                  echo "  [ ] MAJOR:"
+                  echo "  [ ] MINOR:"
+                  echo "  [ ] PATCH:"
+                  echo "  [ ] NONE:"
+                  echo "Assuming no bump intended"
+                  return 0
+              fi
+              
+              # Check if exactly one version bump option is selected
+              SELECTED_COUNT=$(echo "$pr_body" | grep -c "\[\\S\]")
+              echo "Found $SELECTED_COUNT selected options"
+              
+              if [ "$SELECTED_COUNT" -ne 1 ]; then
+                  echo "Error: Exactly one version bump option must be selected"
+                  echo "Selected options:"
+                  echo "$pr_body" | grep "\[\\S\]" || true
+                  return 1
+              fi
+              
+              if echo "$pr_body" | grep -q "\[\\S\] MAJOR:"; then
+                  echo "Selected: MAJOR version bump"
+                  BUMP_TYPE=major
+              elif echo "$pr_body" | grep -q "\[\\S\] MINOR:"; then
+                  echo "Selected: MINOR version bump"
+                  BUMP_TYPE=minor
+              elif echo "$pr_body" | grep -q "\[\\S\] PATCH:"; then
+                  echo "Selected: PATCH version bump"
+                  BUMP_TYPE=patch
+              else
+                  echo "Selected: NO version bump"
+                  BUMP_TYPE=none
+                  SKIP_RELEASE=true
+              fi
+              
+              return 0
+          }
+
+          validate_pr $(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH")
           
-          # Check if exactly one version bump option is selected
-          SELECTED_COUNT=$(grep -c "\[x\]" "$GITHUB_EVENT_PATH")
-          if [ "$SELECTED_COUNT" -ne 1 ]; then
-            echo "Error: Exactly one version bump option must be selected"
-            exit 1
-          fi
-          
-          # Determine version bump type
-          if grep -q "\[x\] MAJOR:" "$GITHUB_EVENT_PATH"; then
-            echo "bump_type=major" >> $GITHUB_OUTPUT
-            echo "skip_release=false" >> $GITHUB_OUTPUT
-          elif grep -q "\[x\] MINOR:" "$GITHUB_EVENT_PATH"; then
-            echo "bump_type=minor" >> $GITHUB_OUTPUT
-            echo "skip_release=false" >> $GITHUB_OUTPUT
-          elif grep -q "\[x\] PATCH:" "$GITHUB_EVENT_PATH"; then
-            echo "bump_type=patch" >> $GITHUB_OUTPUT
-            echo "skip_release=false" >> $GITHUB_OUTPUT
-          else
-            echo "bump_type=none" >> $GITHUB_OUTPUT
-            echo "skip_release=true" >> $GITHUB_OUTPUT
-          fi
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+          echo "skip_release=$SKIP_RELEASE" >> $GITHUB_OUTPUT
 
   version:
     needs: validate
