@@ -2,10 +2,13 @@ name: Release
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [closed]
     branches:
       - main
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   validate:
@@ -24,64 +27,79 @@ jobs:
         run: |
           BUMP_TYPE=none
           SKIP_RELEASE=false
-
-          validate_pr() {
-              local pr_body="$1"
-              
-              if ! echo "$pr_body" | grep -q "\[.\] MAJOR:" && \
-                ! echo "$pr_body" | grep -q "\[.\] MINOR:" && \
-                ! echo "$pr_body" | grep -q "\[.\] PATCH:" && \
-                ! echo "$pr_body" | grep -q "\[.\] NONE:"; then
-                  echo "Error: PR template is missing version bump fields"
-                  echo "Expected fields:"
-                  echo "  [ ] MAJOR:"
-                  echo "  [ ] MINOR:"
-                  echo "  [ ] PATCH:"
-                  echo "  [ ] NONE:"
-                  echo "Assuming no bump intended"
-                  return 0
-              fi
-              
-              # Check if exactly one version bump option is selected
-              SELECTED_COUNT=$(echo "$pr_body" | grep -c "\[\\S\]")
-              echo "Found $SELECTED_COUNT selected options"
-              
-              if [ "$SELECTED_COUNT" -ne 1 ]; then
+          
+          # For pull requests, check if it was merged
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # Only proceed if the PR was merged
+            if [[ "${{ github.event.pull_request.merged }}" != "true" ]]; then
+              echo "Pull request was closed without merging, skipping release"
+              BUMP_TYPE=none
+              SKIP_RELEASE=true
+              echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+              echo "skip_release=$SKIP_RELEASE" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            
+            PR_BODY="${{ github.event.pull_request.body }}"
+                
+            if ! echo "$PR_BODY" | grep -q "\[.\] MAJOR:" && \
+              ! echo "$PR_BODY" | grep -q "\[.\] MINOR:" && \
+              ! echo "$PR_BODY" | grep -q "\[.\] PATCH:" && \
+              ! echo "$PR_BODY" | grep -q "\[.\] NONE:"; then
+                echo "Error: PR template is missing version bump fields"
+                echo "Expected fields:"
+                echo "  [ ] MAJOR:"
+                echo "  [ ] MINOR:"
+                echo "  [ ] PATCH:"
+                echo "  [ ] NONE:"
+                echo "Assuming no bump intended"
+                BUMP_TYPE=none
+                SKIP_RELEASE=true
+            else
+                # Check if exactly one version bump option is selected
+                SELECTED_COUNT=$(echo "$PR_BODY" | grep -c "\[\\S\]")
+                echo "Found $SELECTED_COUNT selected options"
+                
+                if [ "$SELECTED_COUNT" -ne 1 ]; then
                   echo "Error: Exactly one version bump option must be selected"
                   echo "Selected options:"
-                  echo "$pr_body" | grep "\[\\S\]" || true
-                  return 1
-              fi
+                  echo "$PR_BODY" | grep "\[\\S\]" || true
+                  exit 1
+                fi
+                
+                if echo "$PR_BODY" | grep -q "\[\\S\] MAJOR:"; then
+                    echo "Selected: MAJOR version bump"
+                    BUMP_TYPE=major
+                elif echo "$PR_BODY" | grep -q "\[\\S\] MINOR:"; then
+                    echo "Selected: MINOR version bump"
+                    BUMP_TYPE=minor
+                elif echo "$PR_BODY" | grep -q "\[\\S\] PATCH:"; then
+                    echo "Selected: PATCH version bump"
+                    BUMP_TYPE=patch
+                else
+                    echo "Selected: NO version bump"
+                    BUMP_TYPE=none
+                    SKIP_RELEASE=true
+                fi
+            fi
+          else
+            # For workflow_dispatch, always proceed with build release
+            echo "Manual workflow dispatch detected, proceeding with BUILD version bump"
+            BUMP_TYPE=build
+            SKIP_RELEASE=false
+          fi
               
-              if echo "$pr_body" | grep -q "\[\\S\] MAJOR:"; then
-                  echo "Selected: MAJOR version bump"
-                  BUMP_TYPE=major
-              elif echo "$pr_body" | grep -q "\[\\S\] MINOR:"; then
-                  echo "Selected: MINOR version bump"
-                  BUMP_TYPE=minor
-              elif echo "$pr_body" | grep -q "\[\\S\] PATCH:"; then
-                  echo "Selected: PATCH version bump"
-                  BUMP_TYPE=patch
-              else
-                  echo "Selected: NO version bump"
-                  BUMP_TYPE=none
-                  SKIP_RELEASE=true
-              fi
-              
-              return 0
-          }
-
-          validate_pr $(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH")
-          
           echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
           echo "skip_release=$SKIP_RELEASE" >> $GITHUB_OUTPUT
 
   version:
     needs: validate
-    if: |
-      needs.validate.outcome == 'success' && 
-      ${{ needs.validate.outputs.skip_release }} != 'true'
+    if: ${{ needs.validate.outputs.skip_release != 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      new_version: ${{ steps.bump.outputs.new_version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -96,35 +114,40 @@ jobs:
           echo "current_version=$VERSION" >> $GITHUB_OUTPUT
       
       - name: Bump version
-        if: github.event_name == 'pull_request'
+        id: bump
         run: |
           CURRENT_VERSION=${{ steps.get_version.outputs.current_version }}
-          IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
-          MAJOR="${VERSION_PARTS[0]}"
-          MINOR="${VERSION_PARTS[1]}"
-          PATCH="${VERSION_PARTS[2]}"
+          BUMP_TYPE="${{ needs.validate.outputs.bump_type }}"
           
-          case "${{ needs.validate.outputs.bump_type }}" in
-            "major")
-              NEW_VERSION="$((MAJOR + 1)).0.0"
-              ;;
-            "minor")
-              NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
-              ;;
-            "patch")
-              NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-              ;;
-          esac
+          if [[ "$BUMP_TYPE" == "build" ]]; then
+            # For workflow_dispatch, add build number
+            BUILD_NUMBER=$(git rev-list --count HEAD)
+            NEW_VERSION="${CURRENT_VERSION}+${BUILD_NUMBER}"
+            echo "Bumping build number: $NEW_VERSION"
+          else
+            # For pull requests, bump according to the selected type
+            IFS='.' read -r -a VERSION_PARTS <<< "$CURRENT_VERSION"
+            MAJOR="${VERSION_PARTS[0]}"
+            MINOR="${VERSION_PARTS[1]}"
+            PATCH="${VERSION_PARTS[2]}"
+            
+            case "$BUMP_TYPE" in
+              "major")
+                NEW_VERSION="$((MAJOR + 1)).0.0"
+                ;;
+              "minor")
+                NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+                ;;
+              "patch")
+                NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+                ;;
+              *)
+                NEW_VERSION="$MAJOR.$MINOR.$PATCH"  # no bump
+                ;;
+            esac
+            echo "Bumping version: $NEW_VERSION"
+          fi
           
-          echo "$NEW_VERSION" > pkg/version.txt
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-      
-      - name: Bump build number
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          CURRENT_VERSION=${{ steps.get_version.outputs.current_version }}
-          BUILD_NUMBER=$(git rev-list --count HEAD)
-          NEW_VERSION="${CURRENT_VERSION}+${BUILD_NUMBER}"
           echo "$NEW_VERSION" > pkg/version.txt
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
       
@@ -133,19 +156,28 @@ jobs:
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'github-actions@github.com'
           git add pkg/version.txt
-          git commit -m "chore: bump version to ${{ steps.get_version.outputs.new_version }}"
-          git push origin HEAD:${{ github.head_ref }}
+          
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          git commit -m "chore: bump version to $NEW_VERSION"
+          
+          # Push to the appropriate branch
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # For merged PRs, push to the target branch (main)
+            git push origin HEAD:main
+          else
+            # For workflow_dispatch, push to the current branch
+            git push origin HEAD:${GITHUB_REF#refs/heads/}
+          fi
       
       - name: Create Git tag
         run: |
-          git tag -a "${{ steps.get_version.outputs.new_version }}" -m "Release ${{ steps.get_version.outputs.new_version }}"
-          git push origin "${{ steps.get_version.outputs.new_version }}"
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
+          git push origin "$NEW_VERSION"
 
   build:
-    needs: [ version, validate ]
-    if: |
-      needs.validate.outcome == 'success' && 
-      ${{ needs.validate.outputs.skip_release }} != 'true'
+    needs: [version, validate]
+    if: ${{ needs.validate.outputs.skip_release != 'true' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/krakjn/timbre
@@ -189,11 +221,11 @@ jobs:
           retention-days: 7
 
   release:
-    needs: [ build, validate ]
-    if: |
-      needs.validate.outcome == 'success' && 
-      ${{ needs.validate.outputs.skip_release }} != 'true'
+    needs: [build, version, validate]
+    if: ${{ needs.validate.outputs.skip_release != 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     container:
       image: ghcr.io/krakjn/timbre
       credentials:
@@ -240,7 +272,15 @@ jobs:
           
           git add CHANGELOG.md
           git commit -m "docs: update changelog for ${{ steps.get_version.outputs.version }}"
-          git push origin HEAD:${{ github.head_ref }}
+          
+          # Push to the appropriate branch
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # For merged PRs, push to the target branch (main)
+            git push origin HEAD:main
+          else
+            # For workflow_dispatch, push to the current branch
+            git push origin HEAD:${GITHUB_REF#refs/heads/}
+          fi
       
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -267,3 +307,5 @@ jobs:
             ```bash
             sudo dpkg -i timbre_${{ steps.get_version.outputs.version }}*.deb
             ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
