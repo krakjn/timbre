@@ -133,7 +133,7 @@ jobs:
           CURRENT_VERSION=${{ steps.get_version.outputs.current_version }}
           BUMP_TYPE="${{ needs.validate.outputs.bump_type }}"
           
-          if [[ "$BUMP_TYPE" == "build" ]]; then
+          if [ "$BUMP_TYPE" = "build" ]; then
             # For workflow_dispatch, add build number
             BUILD_NUMBER=$(git rev-list --count HEAD)
             NEW_VERSION="${CURRENT_VERSION}+${BUILD_NUMBER}"
@@ -269,7 +269,7 @@ jobs:
         run: |
           VERSION=$(cat pkg/version.txt)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          if [[ $VERSION == *+* ]]; then
+          if [ -z "${VERSION##*+*}" ]; then
             echo "is_build=true" >> $GITHUB_OUTPUT
           else
             echo "is_build=false" >> $GITHUB_OUTPUT
@@ -278,6 +278,9 @@ jobs:
       - name: Generate changelog
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+
+          # Pull before generating changelog to avoid non-fast-forward rejection
+          git pull
           
           if [ -n "$PREV_TAG" ]; then
             auto-changelog \
