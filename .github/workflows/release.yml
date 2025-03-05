@@ -49,7 +49,9 @@ jobs:
 
   version:
     needs: validate
-    if: needs.validate.outcome == 'success' && ${{ env.SKIP_RELEASE }} != 'true'
+    if: |
+      needs.validate.outcome == 'success' && 
+      ${{ needs.validate.outputs.SKIP_RELEASE }} != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -111,8 +113,10 @@ jobs:
           git push origin "${{ steps.get_version.outputs.new_version }}"
 
   build:
-    needs: version
-    if: needs.validate.outcome == 'success' && ${{ env.SKIP_RELEASE }} != 'true'
+    needs: [ version, validate ]
+    if: |
+      needs.validate.outcome == 'success' && 
+      ${{ needs.validate.outputs.SKIP_RELEASE }} != 'true'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/krakjn/timbre
@@ -156,8 +160,10 @@ jobs:
           retention-days: 7
 
   release:
-    needs: build
-    if: needs.validate.outcome == 'success' && ${{ env.SKIP_RELEASE }} != 'true'
+    needs: [ build, validate ]
+    if: |
+      needs.validate.outcome == 'success' && 
+      ${{ needs.validate.outputs.SKIP_RELEASE }} != 'true'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/krakjn/timbre
