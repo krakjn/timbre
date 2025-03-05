@@ -21,7 +21,6 @@ jobs:
       
       - name: Validate PR template
         id: validate
-        if: github.event_name == 'pull_request'
         run: |
           # Check if PR description contains version bump fields
           if ! grep -q "\[ \] MAJOR:" "$GITHUB_EVENT_PATH" && \
