@@ -19,6 +19,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Setup Git
+        run: |
+          # Prevent ownership errors in container environments
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'github-actions@github.com'
       
       - name: Lint commit messages
         run: |
