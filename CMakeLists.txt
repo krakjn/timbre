@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.10)
 
 include(cmake/version.cmake)
-include(cmake/static_analysis.cmake)
+
+# Option to control static analysis in CI
+option(STATIC_ANALYSIS "Run static analysis checks, impacts build time" OFF)
+if(STATIC_ANALYSIS)
+    include(cmake/static_analysis.cmake)
+endif()
 
 # Automatically increment version number based on pipeline
 set(VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/pkg/version.txt")
@@ -51,9 +56,24 @@ target_include_directories(timbre_lib PUBLIC
 
 add_executable(timbre src/main.cpp)
 target_link_libraries(timbre PRIVATE timbre_lib)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_compile_options(timbre PRIVATE 
+        -O3                 # Maximum optimization level
+        -DNDEBUG            # Disable assertions
+        -flto               # Link-time optimization
+        -ffat-lto-objects   # Enable fat LTO objects
+        -flto-partition=one # Partition LTO objects into one file
+        -march=native       # Optimize for current CPU architecture
+        -funroll-loops      # Unroll loops for better performance
+    )
+endif()
+# Additive, so the options below will be added to the ones specified earlier
 target_compile_options(timbre PRIVATE -Wall -Wextra -Werror -pedantic)
 
-apply_static_analysis(timbre)
+if(STATIC_ANALYSIS)
+    apply_static_analysis(timbre)
+endif()
 
 # Installation rules
 install(TARGETS timbre
