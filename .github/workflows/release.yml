@@ -98,6 +98,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    container:
+      image: ghcr.io/krakjn/timbre
+      credentials:
+        username: krakjn
+        password: ${{ secrets.TIMBRE_TOKEN }}
     outputs:
       new_version: ${{ steps.bump.outputs.new_version }}
     steps:
@@ -275,11 +280,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    container:
-      image: ghcr.io/krakjn/timbre
-      credentials:
-        username: krakjn
-        password: ${{ secrets.TIMBRE_TOKEN }}
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
