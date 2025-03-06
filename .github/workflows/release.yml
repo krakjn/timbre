@@ -281,7 +281,7 @@ jobs:
     if: ${{ needs.validate.outputs.skip_release != 'true' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # Needed for creating GitHub releases
     outputs:
       changelog: ${{ steps.changelog.outputs.content }}
     steps:
@@ -290,9 +290,16 @@ jobs:
         with:
           name: timbre-pkg
 
+      # Read and store the changelog content for the release
+      # Uses special GitHub Actions multiline syntax with a random delimiter
+      # to properly handle newlines and special characters
       - name: Get changelog content
         id: changelog
-        run: echo "content=$(cat CHANGELOG.md)" >> $GITHUB_OUTPUT
+        run: |
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          echo "content<<$EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.md >> $GITHUB_OUTPUT
+          echo "$EOF" >> $GITHUB_OUTPUT
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
