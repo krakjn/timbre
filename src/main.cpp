@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstdio>
+#include <utility>  // for std::ignore
 #include "CLI/CLI11.hpp"
 #include "timbre/log.h"
 #include "timbre/timbre.h"
@@ -14,7 +15,6 @@ int main(int argc, char** argv) {
     bool quiet = false;
     bool append = false;
     bool verbose = false;
-
     bool version = false;
     std::string log_dir = ".timbre";
     std::string config_file;
@@ -39,29 +39,20 @@ int main(int argc, char** argv) {
 
     set_log_level(app.count("-v"));
     
-    auto& config = get_config();
+    UserConfig config;
     if (!config_file.empty()) {
         log(LogLevel::INFO, "Loading configuration from: " + config_file);
-        
-        if (!load_config(config_file, config)) {
+        if (!config.load(config_file)) {
             log(LogLevel::ERROR, "Failed to load configuration from: " + config_file);
             return 1;
         }
-        
-        // Override log directory from config if not specified on command line
-        if (app.count("-d") == 0 && app.count("--log-dir") == 0) {
-            log_dir = config.log_dir;
-            log(LogLevel::INFO, "Using log directory from config: " + log_dir);
-        } else {
-            // Update config with command line log_dir
-            config.log_dir = log_dir;
-        }
-    } else {
-        config.log_dir = log_dir;
     }
     
-    // Ensure we have at least default log levels
-    config.set_defaults();
+    // Override log directory from config if specified on command line
+    if (app.count("-d") > 0 || app.count("--log-dir") > 0) {
+        config.set_log_dir(log_dir);
+        log(LogLevel::INFO, "Using log directory from command line: " + log_dir);
+    }
 
     // Set stdout to line buffered for tee-like behavior
     setvbuf(stdout, NULL, _IOLBF, 0);
@@ -77,24 +68,22 @@ int main(int argc, char** argv) {
 
     std::string line;
     size_t line_count = 0;
-    std::map<std::string, size_t> level_counts;
     
     while (std::getline(std::cin, line)) {
+        process_line(config, line, log_files, quiet);
         line_count++;
-        auto level = process_line(line, log_files, quiet);
-        if (level != none) {
-            level_counts[level.name()]++;
-        }
     }
     
-    log(LogLevel::INFO, "Processing complete. Lines processed: " + std::to_string(line_count));
-    for (const auto& [level_name, count] : level_counts) {
-        log(LogLevel::INFO, level_name + " lines logged: " + std::to_string(count));
+    log(LogLevel::INFO, "Processing complete. Total lines processed: " + std::to_string(line_count));
+    
+    // Log counts for each level
+    for (const auto& [level_name, level] : config.get_log_levels()) {
+        if (level.count > 0) {
+            const std::string message = level_name + " lines logged: " + std::to_string(level.count);
+            log(LogLevel::INFO, message);
+        }
     }
 
     close_log_files(log_files);
-
-    std::cout << "Timbre version " << TIMBRE_VERSION_STRING << " (build " << TIMBRE_VERSION_BUILD << ")" << std::endl;
-
     return 0;
 } 

@@ -41,18 +41,10 @@ function(load_semver_vars_from_file VERSION_FILE)
     # Build number might not be present
     if(CMAKE_MATCH_5)
         set(VERSION_BUILD ${CMAKE_MATCH_5} PARENT_SCOPE)
+        set(VERSION_STRING "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}+${CMAKE_MATCH_5}" PARENT_SCOPE)
     else()
         set(VERSION_BUILD "0" PARENT_SCOPE)
-    endif()
-    
-    # Set the full version string (without build number)
-    set(VERSION_STRING "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}" PARENT_SCOPE)
-    
-    # Set the full version string (with build number)
-    if(CMAKE_MATCH_5)
-        set(VERSION_FULL "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}+${CMAKE_MATCH_5}" PARENT_SCOPE)
-    else()
-        set(VERSION_FULL "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}" PARENT_SCOPE)
+        set(VERSION_STRING "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}.${CMAKE_MATCH_3}" PARENT_SCOPE)
     endif()
 endfunction()
 
@@ -84,18 +76,13 @@ function(increment VERSION_FILE TYPE ON_MAIN)
         message(FATAL_ERROR "Invalid version increment type: ${TYPE}")
     endif()
     
-    # Write the updated version back to the file
-    # Format depends on whether we're on main branch
     if(ON_MAIN)
-        # On main, don't include build number
         file(WRITE ${VERSION_FILE} "${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}")
-        set(VERSION_FULL "${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}" PARENT_SCOPE)
         message(STATUS "Incremented ${TYPE} to ${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH} (point release)")
     else()
         # Not on main, include build number
         file(WRITE ${VERSION_FILE} "${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}+${NEW_BUILD}")
-        set(VERSION_FULL "${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}+${NEW_BUILD}" PARENT_SCOPE)
-        message(STATUS "Incremented to ${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}+${NEW_BUILD} (beta release)")
+        message(STATUS "Incremented to ${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}+${NEW_BUILD} (dev release)")
     endif()
     
     # Update parent scope variables
@@ -103,7 +90,11 @@ function(increment VERSION_FILE TYPE ON_MAIN)
     set(VERSION_MINOR ${NEW_MINOR} PARENT_SCOPE)
     set(VERSION_PATCH ${NEW_PATCH} PARENT_SCOPE)
     set(VERSION_BUILD ${NEW_BUILD} PARENT_SCOPE)
-    set(VERSION_STRING "${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}" PARENT_SCOPE)
+    if(ON_MAIN)
+        set(VERSION_STRING "${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}" PARENT_SCOPE)
+    else()
+        set(VERSION_STRING "${NEW_MAJOR}.${NEW_MINOR}.${NEW_PATCH}+${NEW_BUILD}" PARENT_SCOPE)
+    endif()
 endfunction()
 
     
@@ -143,5 +134,4 @@ function(versioning VERSION_FILE)
     set(VERSION_PATCH ${VERSION_PATCH} PARENT_SCOPE)
     set(VERSION_BUILD ${VERSION_BUILD} PARENT_SCOPE)
     set(VERSION_STRING ${VERSION_STRING} PARENT_SCOPE)
-    set(VERSION_FULL ${VERSION_FULL} PARENT_SCOPE)
 endfunction()

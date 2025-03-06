@@ -13,7 +13,7 @@
 
 namespace timbre {
 
-bool matches_regex(const std::string& line, const std::regex& pattern) {
+bool match(const std::string& line, const std::regex& pattern) {
     try {
         return std::regex_search(line, pattern);
     } catch (const std::regex_error& e) {
@@ -22,32 +22,59 @@ bool matches_regex(const std::string& line, const std::regex& pattern) {
     }
 }
 
-ConfigLogLevel process_line(const std::string& line, std::map<std::string, std::ofstream>& log_files, bool quiet) {
+void process_line(
+    UserConfig& config, 
+    const std::string& line, 
+    std::map<std::string, std::ofstream>& log_files,
+    bool quiet) {
+
     // Always write to stdout (tee behavior) unless quiet mode is enabled
     if (!quiet) {
-        printf("%s\n", line.c_str());
-        fflush(stdout);
+        std::cout << line << '\n' << std::flush;
     }
 
-    if (line.empty()) return none;
-
-    const auto& config = get_config();
+    if (line.empty()) return;
     
-    for (const auto& [level_name, level_config] : config.log_levels) {
-        if (matches_regex(line, level_config.pattern)) {
+    // NOLINTBEGIN: unassignedVariable
+    for (auto& [level_name, level_config] : config.get_log_levels()) { // NOLINT
+        if (match(line, level_config.pattern)) {
+            level_config.count++;  // Increment the count for matched level
             auto file_it = log_files.find(level_name);
             if (file_it != log_files.end() && file_it->second.is_open()) {
-                file_it->second << line << std::endl;
+                file_it->second << line << '\n';
                 if (!file_it->second.good()) {
                     log(LogLevel::ERROR, "Failed to write to log file for level: " + level_name);
-                    return none;
+                    return;
                 }
             }
-            return ConfigLogLevel(level_name);
+            return;
+        }
+    }
+    // NOLINTEND
+}
+
+std::map<std::string, std::ofstream> open_log_files(UserConfig& config, bool append) {
+    std::map<std::string, std::ofstream> log_files;
+    
+    std::filesystem::create_directories(config.get_log_dir());
+    for (auto& [level_name, level_config] : config.get_log_levels()) {
+        std::string file_path = config.get_log_dir() + "/" + level_config.path;
+        auto mode = append ? std::ios::app : std::ios::trunc;
+        log_files[level_name].open(file_path, std::ios::out | mode);
+        if (!log_files[level_name].is_open()) {
+            log(LogLevel::ERROR, "Failed to open log file: " + file_path);
         }
     }
     
-    return none;
+    return log_files;
+}
+
+void close_log_files(std::map<std::string, std::ofstream>& log_files) {
+    for (auto& file_pair : log_files) {
+        if (file_pair.second.is_open()) {
+            file_pair.second.close();
+        }
+    }
 }
 
 }

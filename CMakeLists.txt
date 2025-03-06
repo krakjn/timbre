@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 include(cmake/version.cmake)
+include(cmake/static_analysis.cmake)
 
 # Automatically increment version number based on pipeline
 set(VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/pkg/version.txt")
@@ -13,7 +14,6 @@ set(TIMBRE_VERSION_MINOR ${VERSION_MINOR})
 set(TIMBRE_VERSION_PATCH ${VERSION_PATCH})
 set(TIMBRE_VERSION_BUILD ${VERSION_BUILD})
 set(TIMBRE_VERSION_STRING ${VERSION_STRING})
-set(TIMBRE_VERSION_FULL ${VERSION_FULL})
 
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/timbre/version.h.in
@@ -25,8 +25,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 option(BUILD_TESTS "Build the test suite" ON)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/inc)
+# External includes are SYSTEM to suppress warnings
+include_directories(SYSTEM
+    ${CMAKE_CURRENT_SOURCE_DIR}/inc/toml
+    ${CMAKE_CURRENT_SOURCE_DIR}/inc/CLI
+)
+
+# Our includes are normal to enable warnings
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/inc/timbre
+    ${CMAKE_CURRENT_BINARY_DIR}/inc/timbre
+)
 
 # Build library (for testing only)
 add_library(timbre_lib STATIC
@@ -42,6 +51,9 @@ target_include_directories(timbre_lib PUBLIC
 
 add_executable(timbre src/main.cpp)
 target_link_libraries(timbre PRIVATE timbre_lib)
+target_compile_options(timbre PRIVATE -Wall -Wextra -Werror -pedantic)
+
+apply_static_analysis(timbre)
 
 # Installation rules
 install(TARGETS timbre
