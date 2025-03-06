@@ -25,8 +25,6 @@ apt-get install -y \
     libcurl4-openssl-dev \
     make \
     ninja-build \
-    nodejs \
-    npm \
     pkg-config \
     tzdata \
     wget
@@ -35,8 +33,11 @@ apt-get install -y \
 rm -rf /var/lib/apt/lists/*
 EOF
 
-# Install global npm packages
-RUN npm install -g @commitlint/cli @commitlint/config-conventional auto-changelog
+RUN <<EOF
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+apt-get install -y nodejs
+npm install -g @commitlint/cli @commitlint/config-conventional auto-changelog
+EOF
 
 # Install Catch2 test framework
 RUN <<EOF
