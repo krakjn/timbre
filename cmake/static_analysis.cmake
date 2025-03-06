@@ -21,7 +21,6 @@ if(CPPCHECK_EXE)
     message(STATUS "Found cppcheck: ${CPPCHECK_EXE}")
     set(CMAKE_CXX_CPPCHECK 
         ${CPPCHECK_EXE}
-        --configs=12
         --suppress=toomanyconfigs
         -I ${CMAKE_SOURCE_DIR}/inc/timbre
         --suppress=*:${CMAKE_SOURCE_DIR}/inc/toml/*
