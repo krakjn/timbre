@@ -105,12 +105,12 @@ jobs:
         password: ${{ secrets.TIMBRE_TOKEN }}
     outputs:
       new_version: ${{ steps.bump.outputs.new_version }}
+      changelog: ${{ steps.changelog.outputs.content }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.TIMBRE_TOKEN }}
       
       - name: Setup Git
         run: |
@@ -192,6 +192,7 @@ jobs:
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
       
       - name: Commit version bump with changelog
+        id: changelog
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           
@@ -211,6 +212,11 @@ jobs:
               --unreleased true \
               --hide-credit true
           fi
+
+          # Output the changelog content
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
           
           git add CHANGELOG.md pkg/version.txt
           git commit -m "chore: release ${{ steps.bump.outputs.new_version }}"
@@ -270,10 +276,9 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: timbre-pkg
+          name: timbre-deb
           path: |
             build/*.deb
-            CHANGELOG.md
           retention-days: 7
 
   release:
@@ -283,32 +288,24 @@ jobs:
     permissions:
       contents: write  # Needed for creating GitHub releases
     outputs:
-      changelog: ${{ steps.changelog.outputs.content }}
+      changelog: ${{ needs.version.outputs.changelog }}
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: timbre-pkg
+          name: timbre-deb
 
-      - name: Get changelog content
-        id: changelog
-        run: |
-          echo "content<<EOF" >> $GITHUB_OUTPUT
-          cat CHANGELOG.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             build/*.deb
-            CHANGELOG.md
           draft: ${{ needs.validate.outputs.skip_release == 'true' }}
           prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}
-          title: Release ${{ needs.version.outputs.new_version }}
           body: |
-            ${{ steps.changelog.outputs.content }}
+            ${{ needs.version.outputs.changelog }}
 
             ### Debian Package
             ```bash
