@@ -290,16 +290,12 @@ jobs:
         with:
           name: timbre-pkg
 
-      # Read and store the changelog content for the release
-      # Uses special GitHub Actions multiline syntax with a random delimiter
-      # to properly handle newlines and special characters
       - name: Get changelog content
         id: changelog
         run: |
-          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
-          echo "content<<$EOF" >> $GITHUB_OUTPUT
+          echo "content<<EOF" >> $GITHUB_OUTPUT
           cat CHANGELOG.md >> $GITHUB_OUTPUT
-          echo "$EOF" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -316,7 +312,7 @@ jobs:
 
             ### Debian Package
             ```bash
-            sudo dpkg -i timbre_${{ needs.version.outputs.new_version }}*.deb
+            sudo dpkg -i timbre_${{ needs.version.outputs.new_version }}_Linux.deb
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
