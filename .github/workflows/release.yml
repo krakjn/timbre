@@ -313,7 +313,7 @@ jobs:
               --commit-limit false \
               --unreleased true \
               --hide-credit true \
-              --starting-commit $PREV_TAG
+              --starting-version $PREV_TAG
           else
             auto-changelog \
               --template keepachangelog \
