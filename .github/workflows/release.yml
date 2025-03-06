@@ -270,7 +270,7 @@ jobs:
           retention-days: 7
 
   release:
-    needs: [build, version, get_version, validate]
+    needs: [validate, version]
     if: ${{ needs.validate.outputs.skip_release != 'true' }}
     runs-on: ubuntu-latest
     permissions:
