@@ -128,6 +128,7 @@ jobs:
       
       - name: Parse version
         id: parse_version
+        shell: bash # sh doesn't support BASH_REMATCH
         run: |
           CURRENT_VERSION=$(cat pkg/version.txt | tr -d '[:space:]')
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
