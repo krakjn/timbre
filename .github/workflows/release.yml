@@ -236,6 +236,7 @@ jobs:
           make deb BUILD_TYPE=Release
       
       - name: Install and verify package
+        shell: bash
         run: |
           if ! dpkg -i build/*.deb; then
             echo "Failed to install package"
