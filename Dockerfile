@@ -12,6 +12,7 @@ apt-get install -y \
     clang-format \
     clang-tidy \
     cmake \
+    cppcheck \
     curl \
     debhelper \
     devscripts \

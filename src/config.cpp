@@ -4,31 +4,50 @@
 #include <filesystem>
 #include "timbre/config.h"
 #include "toml/toml.hpp"
+#include "timbre/log.h"
 
 namespace timbre {
 
-// Singleton instance
-static Config g_config;  
-
-Config& get_config() {
-    return g_config;
+std::regex _re_compile(const std::string& pattern) {
+    try {
+        return std::regex(pattern, std::regex_constants::extended
+            | std::regex_constants::icase 
+            | std::regex_constants::optimize 
+        );
+    } catch (const std::regex_error& e) {
+        log(LogLevel::ERROR, "Invalid regex pattern: " + pattern);
+        log(LogLevel::ERROR, "Regex error: " + std::string(e.what()));
+        return std::regex();
+    }
 }
 
-void Config::set_defaults() {
-    // Add default log levels if none are configured
-    if (log_levels.empty()) {
-        LogLevelConfig error_config;
-        error_config.pattern = std::regex("error|exception|fail", 
-            std::regex_constants::extended | std::regex_constants::icase);
-        error_config.file = "error";
-        log_levels["error"] = error_config;
-        
-        LogLevelConfig warn_config;
-        warn_config.pattern = std::regex("warn(ing)?", 
-            std::regex_constants::extended | std::regex_constants::icase);
-        warn_config.file = "warn";
-        log_levels["warn"] = warn_config;
-    }
+std::map<std::string, UserLevel> UserConfig::default_levels() {
+    UserLevel error_config;
+    error_config.pattern = _re_compile("(error|exception|fail(ed|ure)?|critical)");
+    error_config.path = "error.log";
+    error_config.count = 0;
+
+    UserLevel warn_config;
+    warn_config.pattern = _re_compile("(warn(ing)?)");
+    warn_config.path = "warn.log";
+    warn_config.count = 0;
+
+    UserLevel info_config;
+    info_config.pattern = _re_compile("(info)");
+    info_config.path = "info.log";
+    info_config.count = 0;
+
+    UserLevel debug_config;
+    debug_config.pattern = _re_compile("(debug)");
+    debug_config.path = "debug.log";
+    debug_config.count = 0;
+
+    return {
+        {"error", error_config},
+        {"warn", warn_config},
+        {"info", info_config},
+        {"debug", debug_config}
+    };
 }
 
 bool create_directory(const std::string& path) {
@@ -61,125 +80,91 @@ bool create_directory(const std::string& path) {
     }
 }
 
-std::map<std::string, std::ofstream> open_log_files(const Config& config, bool append) {
-    std::map<std::string, std::ofstream> log_files;
-    
-    // Create log directory if it doesn't exist
-    if (!create_directory(config.log_dir)) {
-        log(LogLevel::ERROR, "Failed to create log directory: " + config.log_dir);
-        return log_files;  // Return empty map on failure
-    }
-    
-    // Open all configured log files
-    for (const auto& [level_name, level_config] : config.log_levels) {
-        std::filesystem::path file_path = std::filesystem::path(config.log_dir) / level_config.file;
-        
-        std::ios_base::openmode mode = std::ios::out;
-        if (append) {
-            mode |= std::ios::app;
-        } else {
-            mode |= std::ios::trunc;
-        }
-        
-        log_files[level_name].open(file_path, mode);
-        
-        if (!log_files[level_name].is_open()) {
-            log(LogLevel::ERROR, "Failed to open log file: " + file_path.string());
-            // Close any files we've already opened
-            close_log_files(log_files);
-            log_files.clear();
-            return log_files;  // Return empty map on failure
-        }
-        
-        // Enable auto-flushing on newlines
-        log_files[level_name] << std::unitbuf;
-        
-        log(LogLevel::INFO, "Opened log file: " + file_path.string());
-    }
-    
-    return log_files;
-}
-
-void close_log_files(std::map<std::string, std::ofstream>& log_files) {
-    for (auto& [_, file] : log_files) {
-        if (file.is_open()) {
-            file.close();
-        }
-    }
-}
-
-bool load_config(const std::string& filename, Config& config) {
+bool UserConfig::load(const std::string& filename) {
     try {
-        auto data = toml::parse(filename);
+        const auto data = toml::parse(filename);
         
-        // [timbre] section
-        if (data.contains("timbre") && data.at("timbre").is_table()) {
-            auto& timbre_section = toml::find(data, "timbre");
-            
-            if (timbre_section.contains("log_dir") && timbre_section.at("log_dir").is_string()) {
-                config.log_dir = toml::find<std::string>(timbre_section, "log_dir");
-                log(LogLevel::INFO, "Config: log_dir = " + config.log_dir);
-            }
-        }
-        
-        // [log_level] section
-        if (data.contains("log_level") && data.at("log_level").is_table()) {
-            auto& log_level_section = toml::find(data, "log_level");
-            
-            // Clear existing log levels
-            config.log_levels.clear();
-            
-            // Process each key-value pair in the log_level section
-            for (const auto& [key, value] : log_level_section.as_table()) {
-                // Get pattern and file path
-                if (value.is_string()) {
-                    // If value is string, use it as pattern and key as filename
-                    std::string pattern = value.as_string();
-                    try {
-                        LogLevelConfig level_config;
-                        level_config.pattern = std::regex(pattern, 
-                            std::regex_constants::extended | 
-                            std::regex_constants::icase);
-                        level_config.file = key;  // Use level name as filename
-                        config.log_levels[key] = level_config;
-                        log(LogLevel::INFO, "Config: log_level." + key + ".pattern = " + pattern);
-                        log(LogLevel::INFO, "Config: log_level." + key + ".file = " + level_config.file);
-                    } catch (const std::regex_error& e) {
-                        // Don't add this log level to the config
-                        log(LogLevel::ERROR, "Invalid regex pattern for log level '" + key + "': " + pattern);
-                        log(LogLevel::ERROR, "Regex error: " + std::string(e.what()));
-                    }
-                } else if (value.is_table()) {
-                    try {
-                        auto pattern = toml::find<std::string>(value, "pattern");
-                        auto file = toml::find_or<std::string>(value, "file", key);  // Default to key name
-                        try {
-                            LogLevelConfig level_config;
-                            level_config.pattern = std::regex(pattern,
-                                std::regex_constants::extended | 
-                                std::regex_constants::icase);
-                            level_config.file = file;
-                            config.log_levels[key] = level_config;
-                            log(LogLevel::INFO, "Config: log_level." + key + ".pattern = " + pattern);
-                            log(LogLevel::INFO, "Config: log_level." + key + ".file = " + file);
-                        } catch (const std::regex_error& e) {
-                            log(LogLevel::ERROR, "Invalid regex pattern for log level '" + key + "': " + pattern);
-                            log(LogLevel::ERROR, "Regex error: " + std::string(e.what()));
-                        }
-                    } catch (const std::exception& e) {
-                        log(LogLevel::ERROR, "Invalid configuration for log level '" + key + "': " + std::string(e.what()));
-                    }
+        // Handle timbre section
+        if (data.contains("timbre")) {
+            if (data.at("timbre").is_table()) {
+                const auto& timbre_table = data.at("timbre").as_table();
+                if (const auto it = timbre_table.find("log_dir"); it != timbre_table.end() && it->second.is_string()) {
+                    this->set_log_dir(it->second.as_string());
                 }
             }
         }
         
-        // Note: We don't automatically add default log levels here anymore
-        // This allows tests to check if log_levels is empty after loading invalid configs
+        std::map<std::string, UserLevel> levels;
         
+        // Handle log_level section
+        if (data.contains("log_level")) {
+            if (data.at("log_level").is_table()) {
+                const auto& level_table = data.at("log_level").as_table();
+                
+                for (const auto& [key, value] : level_table) {
+                    UserLevel level;
+                    
+                    if (value.is_string()) {
+                        try {
+                            std::string pattern_str = value.as_string();
+                            level.pattern = _re_compile(pattern_str);
+                            level.path = key + ".log";  // Use level name as filepath
+                            levels[key] = std::move(level);
+                            log(LogLevel::INFO, "Config: log_level." + key + ".pattern = " + pattern_str);
+                            log(LogLevel::INFO, "Config: log_level." + key + ".path = " + level.path);
+                        } catch (const std::regex_error& e) {
+                            // Don't add this log level to the config
+                            log(LogLevel::ERROR, "Invalid regex pattern for log level '" + key + "': " + value.as_string());
+                            log(LogLevel::ERROR, "Regex error: " + std::string(e.what()));
+                        }
+                    } else if (value.is_table()) {
+                        try {
+                            const auto& level_table = value.as_table();
+                            std::string pattern_str;
+                            
+                            if (const auto it = level_table.find("pattern"); it != level_table.end() && it->second.is_string()) {
+                                pattern_str = it->second.as_string();
+                                level.pattern = _re_compile(pattern_str);
+                            } else {
+                                throw std::runtime_error("Missing or invalid 'pattern' field in log level config");
+                            }
+                            
+                            if (const auto it = level_table.find("file"); it != level_table.end() && it->second.is_string()) {
+                                level.path = it->second.as_string();
+                            } else {
+                                level.path = key + ".log";  // Default to level name
+                            }
+                            
+                            levels[key] = std::move(level);
+                            log(LogLevel::INFO, "Config: log_level." + key + ".pattern = " + pattern_str);
+                            log(LogLevel::INFO, "Config: log_level." + key + ".path = " + level.path);
+                        } catch (const std::regex_error& e) {
+                            log(LogLevel::ERROR, "Invalid regex pattern for log level '" + key + "'");
+                            log(LogLevel::ERROR, "Regex error: " + std::string(e.what()));
+                            continue;
+                        } catch (const std::exception& e) {
+                            log(LogLevel::ERROR, "Error in log level '" + key + "': " + e.what());
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Use default levels if none were configured
+        if (levels.empty()) {
+            _levels = default_levels();
+        } else {
+            _levels = std::move(levels);
+        }
         return true;
+    } catch (const toml::exception& e) {
+        log(LogLevel::ERROR, "Failed to parse TOML configuration: " + std::string(e.what()));
+        return false;
     } catch (const std::exception& e) {
-        log(LogLevel::ERROR, "Failed to parse config file: " + std::string(e.what()));
+        log(LogLevel::ERROR, e.what());
         return false;
     }
 }
-} 
+
+} // namespace timbre

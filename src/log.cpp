@@ -1,14 +1,21 @@
 #include <iostream>
 #include "timbre/log.h"
+#include "timbre/config.h"
 
-LogLevel app_level = LogLevel::INFO;
+/**
+ * Internal logging for timbre
+ */
+
+namespace timbre {
+
+static LogLevel timbre_level = LogLevel::ERROR;
 
 void set_log_level(int verbosity) {
-    app_level = static_cast<LogLevel>(verbosity);
+    timbre_level = static_cast<LogLevel>(verbosity);
 }
 
 void log(LogLevel level, const std::string& message) {
-    if (level > app_level) return;
+    if (level > timbre_level) return;
     
     std::string prefix;
     switch (level) {
@@ -18,5 +25,6 @@ void log(LogLevel level, const std::string& message) {
         case LogLevel::DEBUG:   prefix = "[DEBUG] "; break;
     }
     
-    std::cerr << prefix << message << std::endl;
+    std::cout << prefix << message << std::endl;
 }
+} // namespace timbre

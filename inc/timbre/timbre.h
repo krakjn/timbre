@@ -5,34 +5,13 @@
 #include <regex>
 #include <string_view>
 #include <map>
+#include "timbre/config.h"
 
 namespace timbre {
 
-// Runtime-determined log level from configuration
-class ConfigLogLevel {
-public:
-    ConfigLogLevel(const std::string& name = "none") : level_name(name) {}
-    
-    // Get the name of this log level
-    const std::string& name() const { return level_name; }
-    
-    // Comparison operators
-    bool operator==(const ConfigLogLevel& other) const { return level_name == other.level_name; }
-    bool operator!=(const ConfigLogLevel& other) const { return !(*this == other); }
-    
-private:
-    std::string level_name;
-};
-
-// TODO: make these const static members of ConfigLogLevel
-static const ConfigLogLevel none{"none"};
-static const ConfigLogLevel error{"error"};
-static const ConfigLogLevel warn{"warn"};
-static const ConfigLogLevel debug{"debug"};
-static const ConfigLogLevel info{"info"};
-
-bool matches_regex(const std::string& line, const std::regex& pattern);
-
-ConfigLogLevel process_line(const std::string& line, std::map<std::string, std::ofstream>& log_files, bool quiet);
+bool match(const std::string& line, const std::regex& pattern);
+void process_line(UserConfig& config, const std::string& line, std::map<std::string, std::ofstream>& log_files, bool quiet = false);
+std::map<std::string, std::ofstream> open_log_files(UserConfig& config, bool append);
+void close_log_files(std::map<std::string, std::ofstream>& log_files);
 
 } 
