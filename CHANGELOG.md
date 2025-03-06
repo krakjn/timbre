@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - docs: update changelog for 0.1.0+28 [`cc545e7`](https://github.com/krakjn/timbre/commit/cc545e736128679070a11c06eca9b54b65a9cf39)
 - chore: setup git appropriately [`c3c246c`](https://github.com/krakjn/timbre/commit/c3c246cc1a80686168a78db718a4f95e2062a685)
 - chore: release 0.1.0+37 [`295be2e`](https://github.com/krakjn/timbre/commit/295be2e5b7af950af0dbeac181d5e5422ee44035)
+- ci: trying to output changelog on release [`57519cb`](https://github.com/krakjn/timbre/commit/57519cb1bc97eaee25e3acfc7b1b186444503021)
+- chore: release 0.1.0+39 [`e9cd534`](https://github.com/krakjn/timbre/commit/e9cd534fdaa83bc1f881c94d4268785ae343ac8f)
 - ci(release): need to run in contianer [`8e12df7`](https://github.com/krakjn/timbre/commit/8e12df70aae648ce85a1d2820450b86e49801564)
 - fix: strip whitespace from version.txt [`489dbfd`](https://github.com/krakjn/timbre/commit/489dbfd3b793d836fe3c7c18d02a6961a5ce2f1a)
 - chore: pull before push [`62d0724`](https://github.com/krakjn/timbre/commit/62d072435d284d0eb4a0134640f7dae8fb8a0beb)
@@ -54,7 +56,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0+35](https://github.com/krakjn/timbre/compare/0.1.0+37...0.1.0+35) - 2025-03-06
 
-## 0.1.0+37 - 2025-03-06
+## [0.1.0+37](https://github.com/krakjn/timbre/compare/0.1.0+39...0.1.0+37) - 2025-03-06
+
+## 0.1.0+39 - 2025-03-06
 
 ### Commits
 
@@ -76,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix: passing vars to the next job [`50abaa6`](https://github.com/krakjn/timbre/commit/50abaa662f57b4b609f43ec8c469094fb464ad77)
 - fix: corectly bringing in the right vars [`87fc06b`](https://github.com/krakjn/timbre/commit/87fc06bb6b4970dbdf87ddff1455102b67c563b2)
 - chore: release 0.1.0+37 [`295be2e`](https://github.com/krakjn/timbre/commit/295be2e5b7af950af0dbeac181d5e5422ee44035)
+- chore: release 0.1.0+39 [`e9cd534`](https://github.com/krakjn/timbre/commit/e9cd534fdaa83bc1f881c94d4268785ae343ac8f)
 - ci(release): need to run in contianer [`8e12df7`](https://github.com/krakjn/timbre/commit/8e12df70aae648ce85a1d2820450b86e49801564)
 - chore: github automatically names the container [`d541669`](https://github.com/krakjn/timbre/commit/d541669c41fb722e9c6f93d72eba3a13986616d3)
 - fix: strip whitespace from version.txt [`489dbfd`](https://github.com/krakjn/timbre/commit/489dbfd3b793d836fe3c7c18d02a6961a5ce2f1a)
@@ -83,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - chore: use proper syntax for env vars [`96e0fc5`](https://github.com/krakjn/timbre/commit/96e0fc57b8f1aab4d21fe3df725e0971d99c414a)
 - fix: regex issue [`e050dd1`](https://github.com/krakjn/timbre/commit/e050dd11a4b76b23aa808a07440a6cbd35a33430)
 - fix(docker-publish): group name appended by default [`60f3aec`](https://github.com/krakjn/timbre/commit/60f3aecb8ff06b8e8c522aff133e9ab55cd4f0f6)
+- ci: github is particular with outputs [`fe4ad76`](https://github.com/krakjn/timbre/commit/fe4ad76d667f96667fb8b3a7a2866d23a37c1db3)
 - ci(release): update needs [`0979593`](https://github.com/krakjn/timbre/commit/097959376bc63a5cb1ab76febf60ad2886829d8a)
 - chore: bump version to 0.1.0+28 [`ac023de`](https://github.com/krakjn/timbre/commit/ac023de0a7b52faa192696ed20a37ef8ec823954)
 - chore: updated flag on auto-changelog [`e363313`](https://github.com/krakjn/timbre/commit/e36331381d3f6cd3706ed598a8073cd2c3144cd8)
