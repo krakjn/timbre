@@ -26,10 +26,7 @@ jobs:
       
       - name: Lint commit messages
         run: |
-          commitlint --config cfg/commitlintrc.json \
-            --from HEAD^ \
-            --to HEAD \
-            --verbose
+          commitlint --config cfg/commitlintrc.json --last --verbose
 
 
   build:

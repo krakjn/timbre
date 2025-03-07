@@ -1,15 +1,11 @@
 name: Docker Build and Publish
 
 on:
-  push:
-    branches: [ "main" ]
-    paths:
-      - 'Dockerfile'
-      - '.github/workflows/docker-publish.yml'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'Dockerfile'
+      - '.github/workflows/docker-publish.yml'
 
 env:
   PLATFORMS: linux/amd64,linux/arm64
