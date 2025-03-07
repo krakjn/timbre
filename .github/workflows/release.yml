@@ -56,7 +56,7 @@ jobs:
                 SKIP_RELEASE=true
             else
                 # Check if exactly one version bump option is selected
-                SELECTED_COUNT=$(echo "$PR_BODY" | grep -c "\[\\S\]")
+                SELECTED_COUNT=$(echo "$PR_BODY" | grep -c "\[\\S\] \(MAJOR\|MINOR\|PATCH\|NONE\):")
                 echo "Found $SELECTED_COUNT selected options"
                 
                 if [ "$SELECTED_COUNT" -ne 1 ]; then
