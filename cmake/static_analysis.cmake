@@ -16,14 +16,13 @@ else()
     message(WARNING "clang-tidy not found!")
 endif()
 
-# Find cppcheck
 find_program(CPPCHECK_EXE NAMES cppcheck)
 if(CPPCHECK_EXE)
     message(STATUS "Found cppcheck: ${CPPCHECK_EXE}")
     set(CMAKE_CXX_CPPCHECK 
         ${CPPCHECK_EXE}
+        --suppress=toomanyconfigs
         -I ${CMAKE_SOURCE_DIR}/inc/timbre
-        # Ignore external libraries
         --suppress=*:${CMAKE_SOURCE_DIR}/inc/toml/*
         --suppress=*:${CMAKE_SOURCE_DIR}/inc/CLI/*
         --suppress=*:${CMAKE_SOURCE_DIR}/tests/*

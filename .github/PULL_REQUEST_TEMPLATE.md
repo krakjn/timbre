@@ -3,8 +3,8 @@
 
 ## Version Bump?
 <!-- Please check the options that are relevant -->
+- [ ] MAJOR: Breaking change (existing functionality has changed)
 - [ ] MINOR: New feature (non-breaking change which adds functionality)
-- [ ] MAJOR: Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] PATCH: Bug fix (non-breaking change which fixes an issue)
 - [x] NONE: documentation, refactoring, or CI/CD changes that don't affect the code
 

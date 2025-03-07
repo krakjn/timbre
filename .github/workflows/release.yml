@@ -5,7 +5,6 @@ on:
     types: [closed]
     branches:
       - main
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -92,25 +91,45 @@ jobs:
           echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
           echo "skip_release=$SKIP_RELEASE" >> $GITHUB_OUTPUT
 
-  get_version:
-    needs: validate
+  version:
+    needs: [validate]
     if: ${{ needs.validate.outputs.skip_release != 'true' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    container:
+      image: ghcr.io/krakjn/timbre
+      credentials:
+        username: krakjn
+        password: ${{ secrets.TIMBRE_TOKEN }}
     outputs:
-      current_version: ${{ steps.parse_version.outputs.current_version }}
-      major: ${{ steps.parse_version.outputs.major }}
-      minor: ${{ steps.parse_version.outputs.minor }}
-      patch: ${{ steps.parse_version.outputs.patch }}
-      build: ${{ steps.parse_version.outputs.build }}
-      is_build_version: ${{ steps.parse_version.outputs.is_build_version }}
+      new_version: ${{ steps.bump.outputs.new_version }}
+      changelog: ${{ steps.changelog.outputs.content }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Git
+        run: |
+          # Prevent ownership errors in container environments
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'github-actions@github.com'
+          
+          # Ensure we can push changes
+          git remote -v || true
+          if ! git remote -v | grep -q origin; then
+            git remote add origin "https://x-access-token:${{ secrets.TIMBRE_TOKEN }}@github.com/krakjn/timbre.git"
+          fi
       
       - name: Parse version
         id: parse_version
+        shell: bash # sh doesn't support BASH_REMATCH
         run: |
-          CURRENT_VERSION=$(cat pkg/version.txt)
+          CURRENT_VERSION=$(cat pkg/version.txt | tr -d '[:space:]')
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           
           # Extract semantic version parts using regex
@@ -135,43 +154,14 @@ jobs:
             echo "Current version: $CURRENT_VERSION"
             exit 1
           fi
-
-  version:
-    needs: [validate, get_version]
-    if: ${{ needs.validate.outputs.skip_release != 'true' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      new_version: ${{ steps.bump.outputs.new_version }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.TIMBRE_TOKEN }}
-      
-      - name: Setup Git
-        run: |
-          # Prevent ownership errors in container environments
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'github-actions@github.com'
-          
-          # Ensure we can push changes
-          git remote -v || true
-          if ! git remote -v | grep -q origin; then
-            git remote add origin "https://x-access-token:${{ secrets.TIMBRE_TOKEN }}@github.com/krakjn/timbre.git"
-          fi
       
       - name: Bump version
         id: bump
         run: |
           BUMP_TYPE="${{ needs.validate.outputs.bump_type }}"
-          MAJOR="${{ needs.get_version.outputs.major }}"
-          MINOR="${{ needs.get_version.outputs.minor }}"
-          PATCH="${{ needs.get_version.outputs.patch }}"
+          MAJOR="${{ steps.parse_version.outputs.major }}"
+          MINOR="${{ steps.parse_version.outputs.minor }}"
+          PATCH="${{ steps.parse_version.outputs.patch }}"
           
           if [ "$BUMP_TYPE" = "build" ]; then
             # For workflow_dispatch, add build number
@@ -200,12 +190,24 @@ jobs:
           echo "$NEW_VERSION" > pkg/version.txt
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
       
-      - name: Commit version change
+      - name: Commit version bump with changelog
+        id: changelog
         run: |
-          git add pkg/version.txt
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           
-          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
-          git commit -m "chore: bump version to $NEW_VERSION"
+          if [ -n "$PREV_TAG" ]; then
+            auto-changelog --config cfg/auto-changelog --starting-version $PREV_TAG
+          else
+            auto-changelog --config cfg/auto-changelog
+          fi
+
+          # Output the changelog content
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          git add CHANGELOG.md pkg/version.txt
+          git commit -m "chore: release ${{ steps.bump.outputs.new_version }}"
           
           # Push to the appropriate branch
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -222,143 +224,80 @@ jobs:
           git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
           git push origin "$NEW_VERSION"
 
-  build:
-    needs: [version, validate]
-    if: ${{ needs.validate.outputs.skip_release != 'true' }}
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/krakjn/timbre
-      credentials:
-        username: krakjn
-        password: ${{ secrets.TIMBRE_TOKEN }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
-      - name: Build package
+      # Build freshly bumped version
+      - name: Build debian package
         run: |
           make deb BUILD_TYPE=Release
       
       - name: Install and verify package
+        shell: bash
         run: |
           if ! dpkg -i build/*.deb; then
             echo "Failed to install package"
             exit 1
           fi
           
+          EXPECTED_VERSION="${{ steps.bump.outputs.new_version }}"
+          echo "Expected version: $EXPECTED_VERSION"
+          
           if ! version_output=$(timbre --version); then
             echo "Failed to run timbre --version"
             exit 1
           fi
-          echo "Version check output: $version_output"
+          echo "Actual version output: $version_output"
           
-          if ! help_output=$(timbre --help); then
-            echo "Failed to run timbre --help"
+          if [[ "$version_output" =~ ([0-9]+\.[0-9]+\.[0-9]+(\+[0-9]+)?) ]]; then
+            ACTUAL_VERSION="${BASH_REMATCH[1]}"
+            echo "Extracted version: $ACTUAL_VERSION"
+            
+            if [ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]; then
+              echo "Version mismatch!"
+              echo "Expected: $EXPECTED_VERSION"
+              echo "Actual:   $ACTUAL_VERSION"
+              exit 1
+            fi
+          else
+            echo "Failed to parse version from output: $version_output"
             exit 1
           fi
-          echo "Help command output: $help_output"
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: timbre-deb
-          path: build/*.deb
+          path: |
+            build/*.deb
           retention-days: 7
 
   release:
-    needs: [build, version, get_version, validate]
+    needs: [validate, version]
     if: ${{ needs.validate.outputs.skip_release != 'true' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-    container:
-      image: ghcr.io/krakjn/timbre
-      credentials:
-        username: krakjn
-        password: ${{ secrets.TIMBRE_TOKEN }}
+      contents: write  # Needed for creating GitHub releases
+    outputs:
+      changelog: ${{ needs.version.outputs.changelog }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          token: ${{ secrets.TIMBRE_TOKEN }}
-      
-      - name: Setup Git
-        run: |
-          # Prevent ownership errors in container environments
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'github-actions@github.com'
-          
-          # Ensure we can push changes
-          git remote -v || true
-          if ! git remote -v | grep -q origin; then
-            git remote add origin "https://x-access-token:${{ secrets.TIMBRE_TOKEN }}@github.com/krakjn/timbre.git"
-          fi
-      
-      - name: Generate changelog
-        run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-
-          # Pull before generating changelog to avoid conflicts
-          git pull
-          
-          if [ -n "$PREV_TAG" ]; then
-            auto-changelog \
-              --template keepachangelog \
-              --output CHANGELOG.md \
-              --commit-limit false \
-              --unreleased true \
-              --hide-credit true \
-              --starting-commit $PREV_TAG
-          else
-            auto-changelog \
-              --template keepachangelog \
-              --output CHANGELOG.md \
-              --commit-limit false \
-              --unreleased true \
-              --hide-credit true
-          fi
-          
-          git add CHANGELOG.md
-          git commit -m "docs: update changelog for ${{ needs.version.outputs.new_version }}"
-          
-          # Push to the appropriate branch
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            # For merged PRs, push to the target branch (main)
-            git push origin HEAD:main
-          else
-            # For workflow_dispatch, push to the current branch
-            git push origin HEAD:${GITHUB_REF#refs/heads/}
-          fi
-      
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: timbre-deb
-          path: build
+
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             build/*.deb
-            CHANGELOG.md
-          draft: ${{ needs.get_version.outputs.is_build_version }}
+          draft: ${{ needs.validate.outputs.skip_release == 'true' }}
           prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}
-          title: Release ${{ needs.version.outputs.new_version }}
           body: |
-            See CHANGELOG.md for details.
-            
-            ## Installation
-            
+            ${{ needs.version.outputs.changelog }}
+
             ### Debian Package
             ```bash
-            sudo dpkg -i timbre_${{ needs.version.outputs.new_version }}*.deb
+            sudo dpkg -i timbre_${{ needs.version.outputs.new_version }}_Linux.deb
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

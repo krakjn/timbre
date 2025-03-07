@@ -30,9 +30,10 @@ endfunction()
 
 function(load_semver_vars_from_file VERSION_FILE)
     file(READ ${VERSION_FILE} VERSION_CONTENT)
+    string(STRIP "${VERSION_CONTENT}" VERSION_CONTENT) # Strip any whitespace or newlines
     string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)(\\+([0-9]+))?$" VERSION_MATCH "${VERSION_CONTENT}")
     if(NOT VERSION_MATCH)
-        message(FATAL_ERROR "Invalid version format in ${VERSION_FILE}")
+        message(FATAL_ERROR "Invalid version format ${VERSION_CONTENT} in ${VERSION_FILE}")
     endif()
     set(VERSION_MAJOR ${CMAKE_MATCH_1} PARENT_SCOPE)
     set(VERSION_MINOR ${CMAKE_MATCH_2} PARENT_SCOPE)
