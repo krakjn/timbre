@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.14)
 
 include(cmake/version.cmake)
 
@@ -13,6 +13,27 @@ set(VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/pkg/version.txt")
 versioning(${VERSION_FILE})
 
 project(timbre VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
+
+# Enable multi-config generator support
+if(CMAKE_GENERATOR STREQUAL "Ninja Multi-Config")
+    message(STATUS "Using Ninja Multi-Config generator")
+    # Set default configurations if not specified
+    if(NOT CMAKE_CONFIGURATION_TYPES)
+        set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Available build configurations" FORCE)
+    endif()
+endif()
+
+# Set architecture if not already defined
+if(NOT DEFINED TIMBRE_TARGET_ARCH)
+    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+        set(TIMBRE_TARGET_ARCH "arm64")
+    else()
+        set(TIMBRE_TARGET_ARCH "amd64")
+    endif()
+endif()
+
+message(STATUS "Building for architecture: ${TIMBRE_TARGET_ARCH}")
+message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
 set(TIMBRE_VERSION_MAJOR ${VERSION_MAJOR})
 set(TIMBRE_VERSION_MINOR ${VERSION_MINOR})
@@ -57,19 +78,26 @@ target_include_directories(timbre_lib PUBLIC
 add_executable(timbre src/main.cpp)
 target_link_libraries(timbre PRIVATE timbre_lib)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options(timbre PRIVATE 
-        -O3                 # Maximum optimization level
-        -DNDEBUG            # Disable assertions
-        -flto               # Link-time optimization
-        -ffat-lto-objects   # Enable fat LTO objects
-        -flto-partition=one # Partition LTO objects into one file
-        -march=native       # Optimize for current CPU architecture
-        -funroll-loops      # Unroll loops for better performance
-    )
+# Configuration-specific compile options
+set(RELEASE_COMPILE_OPTIONS
+    -O3                 # Maximum optimization level
+    -DNDEBUG            # Disable assertions
+    -flto               # Link-time optimization
+    -ffat-lto-objects   # Enable fat LTO objects
+    -flto-partition=one # Partition LTO objects into one file
+    -funroll-loops      # Unroll loops for better performance
+)
+
+# Add architecture-specific optimizations
+if(DEFINED TIMBRE_ARCH_COMPILE_OPTIONS)
+    list(APPEND RELEASE_COMPILE_OPTIONS ${TIMBRE_ARCH_COMPILE_OPTIONS})
 endif()
-# Additive, so the options below will be added to the ones specified earlier
-target_compile_options(timbre PRIVATE -Wall -Wextra -Werror -pedantic)
+
+# Apply configuration-specific options
+target_compile_options(timbre PRIVATE 
+    $<$<CONFIG:Release>:${RELEASE_COMPILE_OPTIONS}>
+    -Wall -Wextra -Werror -pedantic
+)
 
 if(STATIC_ANALYSIS)
     apply_static_analysis(timbre)
@@ -106,12 +134,5 @@ if(BUILD_TESTS)
     catch_discover_tests(timbre_tests)
 endif()
 
-# Add architecture-specific settings
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-    set(ARCH "arm64")
-else()
-    set(ARCH "amd64")
-endif()
-
 # Update package name to include architecture
-set(CPACK_PACKAGE_FILE_NAME "timbre_${PROJECT_VERSION}_${ARCH}")
+set(CPACK_PACKAGE_FILE_NAME "timbre_${PROJECT_VERSION}_${TIMBRE_TARGET_ARCH}")
