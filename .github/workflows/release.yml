@@ -265,8 +265,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: timbre-deb
-          path: |
-            build/*.deb
+          path: build/*.deb
           retention-days: 7
 
   release:
@@ -274,7 +273,7 @@ jobs:
     if: ${{ needs.validate.outputs.skip_release != 'true' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Needed for creating GitHub releases
+      contents: write
     outputs:
       changelog: ${{ needs.version.outputs.changelog }}
     steps:
@@ -283,12 +282,10 @@ jobs:
         with:
           name: timbre-deb
 
-      
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            build/*.deb
+          files: "*.deb"
           draft: ${{ needs.validate.outputs.skip_release == 'true' }}
           prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}
