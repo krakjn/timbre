@@ -23,16 +23,7 @@ if(CMAKE_GENERATOR STREQUAL "Ninja Multi-Config")
     endif()
 endif()
 
-# Set architecture if not already defined
-if(NOT DEFINED TIMBRE_TARGET_ARCH)
-    if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
-        set(TIMBRE_TARGET_ARCH "arm64")
-    else()
-        set(TIMBRE_TARGET_ARCH "amd64")
-    endif()
-endif()
-
-message(STATUS "Building for architecture: ${TIMBRE_TARGET_ARCH}")
+message(STATUS "Building for architecture: ${TARGET_ARCH}")
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
 set(TIMBRE_VERSION_MAJOR ${VERSION_MAJOR})
@@ -135,4 +126,4 @@ if(BUILD_TESTS)
 endif()
 
 # Update package name to include architecture
-set(CPACK_PACKAGE_FILE_NAME "timbre_${PROJECT_VERSION}_${TIMBRE_TARGET_ARCH}")
+set(CPACK_PACKAGE_FILE_NAME "timbre_${PROJECT_VERSION}_${TARGET_ARCH}")

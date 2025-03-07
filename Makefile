@@ -10,43 +10,35 @@ PREFIX ?= /usr/local/bin
 NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
 
 # Build directories with precise architecture names
-BUILD_X86_64 = build_x86_64
-BUILD_ARM64 = build_arm64
+BUILD_X86_64 = build/x86_64
+BUILD_ARM64 = build/arm64
 
 # Configure cross-config settings
 CROSS_CONFIGS = all
 
 .PHONY: default
 default: configure-x86_64
-	@echo "Building $(BUILD_TYPE) configuration for x86_64"
 	@cmake --build $(BUILD_X86_64) --config $(BUILD_TYPE) -j$(NPROC)
 
 .PHONY: configure-x86_64
 configure-x86_64:
-	@mkdir -p $(BUILD_X86_64)
-	@cd $(BUILD_X86_64) && cmake .. \
-		-G "Ninja Multi-Config" \
+	@cmake -S . -B $(BUILD_X86_64) -G "Ninja Multi-Config" \
+		--toolchain cmake/toolchain_x86_64.cmake \
 		-DCMAKE_CONFIGURATION_TYPES="Debug;Release;RelWithDebInfo" \
 		-DCMAKE_DEFAULT_BUILD_TYPE="$(BUILD_TYPE)" \
-		-DCMAKE_CROSS_CONFIGS="$(CROSS_CONFIGS)" \
-		-DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain.cmake \
-		-DTARGET_ARCH=x86_64
+		-DCMAKE_CROSS_CONFIGS="$(CROSS_CONFIGS)"
 
 .PHONY: cross
 cross: configure-arm64
-	@echo "Building $(BUILD_TYPE) configuration for arm64"
 	@cmake --build $(BUILD_ARM64) --config $(BUILD_TYPE) -j$(NPROC)
 
 .PHONY: configure-arm64
 configure-arm64:
-	@mkdir -p $(BUILD_ARM64)
-	@cd $(BUILD_ARM64) && cmake .. \
-		-G "Ninja Multi-Config" \
+	@cmake -S . -B $(BUILD_ARM64) -G "Ninja Multi-Config" \
+		--toolchain cmake/toolchain_arm64.cmake \
 		-DCMAKE_CONFIGURATION_TYPES="Debug;Release;RelWithDebInfo" \
 		-DCMAKE_DEFAULT_BUILD_TYPE="$(BUILD_TYPE)" \
-		-DCMAKE_CROSS_CONFIGS="$(CROSS_CONFIGS)" \
-		-DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain.cmake \
-		-DTARGET_ARCH=arm64
+		-DCMAKE_CROSS_CONFIGS="$(CROSS_CONFIGS)"
 
 .PHONY: all
 all: default cross
