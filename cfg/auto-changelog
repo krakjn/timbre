@@ -6,5 +6,11 @@
   "breakingPattern": "BREAKING CHANGE:",
   "issuePattern": "#\\d+",
   "issueUrl": "https://github.com/krakjn/timbre/issues/{id}",
+  "commitGroups": [
+    {
+      "title": "Notable Changes",
+      "regexp": "^(feat|fix|refactor|perf)"
+    }
+  ],
   "output": "CHANGELOG.md"
 }
