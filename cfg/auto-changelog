@@ -1,8 +1,10 @@
 {
   "template": "keepachangelog",
   "unreleased": true,
-  "commitLimit": true,
+  "commitLimit": false,
+  "hideCredit": true,
   "breakingPattern": "BREAKING CHANGE:",
   "issuePattern": "#\\d+",
   "issueUrl": "https://github.com/krakjn/timbre/issues/{id}",
+  "output": "CHANGELOG.md"
 }
