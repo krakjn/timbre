@@ -3,8 +3,6 @@ name: CI
 on:
   push:
     branches: [ '**' ]
-  pull_request:
-    branches: [ '**' ]
 
 jobs:
   commitlint:
@@ -17,8 +15,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Setup Git
         run: |
@@ -30,17 +26,10 @@ jobs:
       
       - name: Lint commit messages
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            npx commitlint --config cfg/commitlintrc.json \
-              --from ${{ github.event.pull_request.base.sha }} \
-              --to ${{ github.event.pull_request.head.sha }} \
-              --verbose
-          else
-            npx commitlint --config cfg/commitlintrc.json \
-              --from $(git rev-parse HEAD~10) \
-              --to HEAD \
-              --verbose
-          fi
+          commitlint --config cfg/commitlintrc.json \
+            --from HEAD^ \
+            --to HEAD \
+            --verbose
 
 
   build:
