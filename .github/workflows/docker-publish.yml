@@ -1,11 +1,17 @@
 name: Docker Build and Publish
 
 on:
-  pull_request:
+  push:
     branches: [ "main" ]
     paths:
       - 'Dockerfile'
       - '.github/workflows/docker-publish.yml'
+      - 'scripts/*'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'Dockerfile'
+      - 'scripts/*'
 
 env:
   PLATFORMS: linux/amd64,linux/arm64
@@ -19,8 +25,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.branch || github.ref }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3

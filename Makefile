@@ -5,9 +5,24 @@
 #     \/_/   \/_/   \/_/  \/_/   \/_____/   \/_/ /_/   \/_____/ 
                                                               
 BUILD_TYPE ?= Debug
-BUILD_DIR = build
 PREFIX ?= /usr/local/bin
 NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+
+# Default architecture is native
+ARCH ?= amd64
+
+# Compiler settings based on architecture
+ifeq ($(ARCH),arm64)
+    CXX = aarch64-linux-gnu-g++
+    CC = aarch64-linux-gnu-gcc
+    ARCH_FLAGS = -DCMAKE_SYSTEM_PROCESSOR=aarch64
+else
+    CXX = g++
+    CC = gcc
+    ARCH_FLAGS = -DCMAKE_SYSTEM_PROCESSOR=x86_64
+endif
+
+BUILD_DIR = build-$(ARCH)
 
 .PHONY: default
 default: $(BUILD_DIR)
@@ -15,7 +30,11 @@ default: $(BUILD_DIR)
 
 $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
-	@cd $(BUILD_DIR) && cmake .. -G Ninja -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) -DCMAKE_INSTALL_PREFIX=$(PREFIX)
+	@cd $(BUILD_DIR) && cmake .. \
+		-G Ninja \
+		-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+		-DCMAKE_INSTALL_PREFIX=$(PREFIX) \
+		$(ARCH_FLAGS)
 
 .PHONY: clean
 clean:

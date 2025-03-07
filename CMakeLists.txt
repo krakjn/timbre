@@ -105,3 +105,13 @@ if(BUILD_TESTS)
     include(Catch)
     catch_discover_tests(timbre_tests)
 endif()
+
+# Add architecture-specific settings
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    set(ARCH "arm64")
+else()
+    set(ARCH "amd64")
+endif()
+
+# Update package name to include architecture
+set(CPACK_PACKAGE_FILE_NAME "timbre_${PROJECT_VERSION}_${ARCH}")

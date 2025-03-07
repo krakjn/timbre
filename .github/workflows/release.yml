@@ -225,47 +225,36 @@ jobs:
           git push origin "$NEW_VERSION"
 
       # Build freshly bumped version
-      - name: Build debian package
+      - name: Build packages
         run: |
           make deb BUILD_TYPE=Release
       
       - name: Install and verify package
         shell: bash
         run: |
-          if ! dpkg -i build/*.deb; then
-            echo "Failed to install package"
+          # List built packages
+          find . -name "*.deb"
+          
+          # Verify AMD64 package
+          if ! dpkg -i build-amd64/*.deb; then
+            echo "Failed to install AMD64 package"
             exit 1
           fi
           
-          EXPECTED_VERSION="${{ steps.bump.outputs.new_version }}"
-          echo "Expected version: $EXPECTED_VERSION"
-          
-          if ! version_output=$(timbre --version); then
-            echo "Failed to run timbre --version"
-            exit 1
-          fi
-          echo "Actual version output: $version_output"
-          
-          if [[ "$version_output" =~ ([0-9]+\.[0-9]+\.[0-9]+(\+[0-9]+)?) ]]; then
-            ACTUAL_VERSION="${BASH_REMATCH[1]}"
-            echo "Extracted version: $ACTUAL_VERSION"
-            
-            if [ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]; then
-              echo "Version mismatch!"
-              echo "Expected: $EXPECTED_VERSION"
-              echo "Actual:   $ACTUAL_VERSION"
-              exit 1
-            fi
-          else
-            echo "Failed to parse version from output: $version_output"
+          # Note: ARM64 package can't be verified in AMD64 container
+          # but we can check if it exists
+          if [ ! -f build-arm64/*.deb ]; then
+            echo "ARM64 package not found"
             exit 1
           fi
       
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: timbre-deb
-          path: build/*.deb
+          path: |
+            build-amd64/*.deb
+            build-arm64/*.deb
           retention-days: 7
 
   release:

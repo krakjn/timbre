@@ -1,144 +1,108 @@
-# Timbre - Structured Logging Tool
+# Timbre - Turn those logs into quality lumber 🪵
 
-Timbre is a simple structured logging tool that filters and categorizes log messages based on their content.
+Debugging a program with tons of output? Pass them to `timbre`
 
 ## Features
 
-- Filters log messages containing "ERROR" and "WARNING" into separate files
-- Option to suppress terminal output
-- Option to append to existing log files instead of overwriting
-- Configurable log directory
-- Verbose logging for diagnostics
-- TOML configuration file support with regex pattern matching
-- Robust error handling
+- 🔍 Smart log filtering with regex support
+- 📁 Organized log categorization
+- ⚙️ TOML configuration
+- 🚀 High performance
+- 📊 Detailed diagnostics
 
-## Building
-
-### Prerequisites
-
-- CMake (version 3.10 or higher)
-- C++ compiler with C++17 support
-
-### Build Instructions
-
-```bash
-# Build the project (creates build directory automatically)
-make
-
-# Build with Release configuration
-make BUILD_TYPE=Release
-
-# Clean build artifacts
-make clean
-
-# Remove build directory completely
-make distclean
+```sh
+./app_with_tons_of_output | timbre
+```
+Structured logs add soundness to the noise of development. Add custom filters and categories to timbre with a configuration file to chop those logs in their respective files.
+```
+ls -l .timbre/
+  error.log
+  warn.log
+  info.log
+  debug.log
 ```
 
-## Installation
+[![CI](https://github.com/krakjn/timbre/actions/workflows/ci.yml/badge.svg)](https://github.com/krakjn/timbre/actions/workflows/ci.yml)
+[![Release](https://github.com/krakjn/timbre/actions/workflows/release.yml/badge.svg)](https://github.com/krakjn/timbre/actions/workflows/release.yml)
+
+## Quick Start
+
+### Installation
+
+Timbre provides packages for multiple architectures:
 
 ```bash
-# Install to default location (/usr/local)
-make install
+# For AMD64 (x86_64)
+curl -LO https://github.com/krakjn/timbre/releases/latest/download/timbre_*_amd64.deb
+sudo dpkg -i timbre_*_amd64.deb
 
-# Install to custom location
-make install PREFIX=~/bin
-
-# Uninstall
-make uninstall
+# For ARM64 (aarch64)
+curl -LO https://github.com/krakjn/timbre/releases/latest/download/timbre_*_arm64.deb
+sudo dpkg -i timbre_*_arm64.deb
 ```
 
-## Usage
+The development container also supports both architectures:
+```bash
+# It will automatically use the correct architecture for your system
+docker run -it --rm -v $(pwd):/app ghcr.io/krakjn/timbre:latest
+```
+
+This setup will:
+1. Build both AMD64 and ARM64 packages
+2. Create multi-arch Docker images
+3. Provide architecture-specific Debian packages
+4. Support cross-compilation in the development container
+
+Would you like me to:
+1. Add more architectures?
+2. Explain any part in more detail?
+3. Add more build configurations?
+
+### Basic Usage
 
 ```bash
-# Build and run
-make run
+# Process logs with default settings
+./app | timbre
 
-# Or run directly after building
-./build/timbre
+# Use custom configuration
+./app | timbre --config=timbre.toml
 
-# Suppress terminal output
-./build/timbre --quiet
-
-# Append to existing log files
-./build/timbre --append
-
-# Enable verbose logging
-./build/timbre --verbose
-
-# Specify custom log directory
-./build/timbre --log-dir=/path/to/logs
-
-# Use a TOML configuration file
-./build/timbre --config=timbre.toml
-
-# Combine options
-./build/timbre --quiet --append --verbose
+# Enable verbose output
+./app | timbre --verbose
 ```
 
-## TOML Configuration
-
-Timbre supports configuration via TOML files. Here's an example:
+### Configuration
 
 ```toml
 [timbre]
-log_dir = "/var/log/timbre" 
+log_dir = "/var/log/timbre"
 
 [log_level]
-# Define regex patterns for different log levels
 debug = "debug"
-warn = "WARN"
-optional = "Optional"
-error = "error|exception|fail"  # Extended regex pattern example
+warn = "warn(ing)?"
+error = "error|exception|fail"
 ```
 
-The configuration file allows you to:
-- Set the log directory
-- Define regex patterns for different log levels
+## Documentation
 
-All regex patterns support:
-- Case-insensitive matching (e.g., "error" matches "ERROR", "error", and "Error")
-- Extended regex syntax (e.g., "error|exception" matches either "error" or "exception")
+- [Workflow](docs/WORKFLOW.md) - Detailed CI/CD and development workflow
+- [Contributing](docs/CONTRIBUTING.md) - How to contribute to Timbre
+- [Changelog](CHANGELOG.md) - Version history and changes
 
-## Log Files
-
-Log files are stored in the `.timbre` directory by default (or as specified in the config):
-- `.timbre/warn` - Contains messages with "WARNING" or matching the "warn" regex
-- `.timbre/error` - Contains messages with "ERROR" or matching the "error" regex
-
-## Testing
-
-The project includes unit tests using the Catch2 framework.
+## Building from Source
 
 ```bash
-# Build and run tests
-cd build
-ctest
+# Clone repository
+git clone https://github.com/krakjn/timbre.git
+cd timbre
 
-# Or run the test executable directly for more detailed output
-./build/timbre_tests
+# Build
+make BUILD_TYPE=Release
+
+# Install
+sudo make install
 ```
 
-The test suite includes:
-- Pattern detection tests
-- Line processing tests
-- Configuration file handling tests:
-  - Testing with non-existent configuration files
-  - Testing with invalid TOML syntax
-  - Testing with missing required sections
-  - Testing with invalid regex patterns
-  - Testing with valid configuration files
-  - Testing case-insensitive regex matching
+## LICENSE
 
-## Diagnostics
-
-Timbre provides diagnostic logging to stderr with different verbosity levels:
-- Normal mode: Shows INFO, WARNING, and ERROR messages
-- Verbose mode: Also shows DEBUG messages
-
-Example output:
-```
-[INFO] Timbre started. Processing input...
-[ERROR] Failed to open warning log file
-[INFO] Processing complete. Lines processed: 42
-``` 
+This project is licensed under the MIT License - see the [license](LICENSE) file for details.

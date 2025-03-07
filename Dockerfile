@@ -5,6 +5,7 @@ LABEL org.opencontainers.image.source="https://github.com/krakjn/timbre"
 
 RUN <<EOF
 export DEBIAN_FRONTEND=noninteractive
+dpkg --add-architecture arm64
 apt-get update
 apt-get install -y \
     build-essential \
@@ -24,6 +25,7 @@ apt-get install -y \
     jq \
     libcurl4-openssl-dev \
     make \
+    crossbuild-essential-arm64 \
     ninja-build \
     pkg-config \
     tzdata \
