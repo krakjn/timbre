@@ -10,8 +10,26 @@
 #include "timbre/log.h"
 #include "timbre/config.h"
 #include "timbre/timbre.h"
+#include "timbre/version.h"
 
 namespace timbre {
+
+void print_version() {
+    if (TIMBRE_IS_DEV) {
+        printf("timbre version %d.%d.%d-dev (build %s)\n", 
+            TIMBRE_VERSION_MAJOR, 
+            TIMBRE_VERSION_MINOR, 
+            TIMBRE_VERSION_PATCH, 
+            TIMBRE_VERSION_SHA
+        );
+    } else {
+        printf("timbre version %d.%d.%d\n", 
+            TIMBRE_VERSION_MAJOR, 
+            TIMBRE_VERSION_MINOR, 
+            TIMBRE_VERSION_PATCH
+        );
+    }
+}
 
 bool match(const std::string& line, const std::regex& pattern) {
     try {

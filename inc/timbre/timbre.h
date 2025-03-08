@@ -9,6 +9,7 @@
 
 namespace timbre {
 
+void print_version();
 bool match(const std::string& line, const std::regex& pattern);
 void process_line(UserConfig& config, const std::string& line, std::map<std::string, std::ofstream>& log_files, bool quiet = false);
 std::map<std::string, std::ofstream> open_log_files(UserConfig& config, bool append);
