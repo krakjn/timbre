@@ -171,7 +171,6 @@ TEST_CASE("Configuration file handling", "[config]") {
     }
 }
 
-// Clean up test files after tests
 struct TestCleanup {
     ~TestCleanup() {
         std::remove("test_error.log");
@@ -179,7 +178,6 @@ struct TestCleanup {
         std::remove("test_error_case.log");
         std::remove("test_warn_case.log");
         
-        // Clean up configuration test files
         if (std::filesystem::exists("test_config")) {
             std::filesystem::remove_all("test_config");
         }

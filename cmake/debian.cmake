@@ -3,7 +3,7 @@ set(CPACK_GENERATOR "DEB")
 
 # Package information
 set(CPACK_PACKAGE_NAME "timbre")
-set(CPACK_PACKAGE_VERSION "${TIMBRE_VERSION_STRING}")
+set(CPACK_PACKAGE_VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A modern C++ logging utility")
 set(CPACK_PACKAGE_DESCRIPTION "Timbre is a modern, efficient, and flexible logging utility for C++ applications. It provides a clean command-line interface for structured logging with support for multiple output formats and destinations.")
 set(CPACK_PACKAGE_MAINTAINER "Tony B <krakjn@gmail.com>")

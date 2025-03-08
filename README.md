@@ -85,9 +85,10 @@ error = "error|exception|fail"
 
 ## Documentation
 
-- [Workflow](docs/WORKFLOW.md) - Detailed CI/CD and development workflow
-- [Contributing](docs/CONTRIBUTING.md) - How to contribute to Timbre
+- [Workflow](docs/workflow.md) - Detailed CI/CD and development workflow
+- [Contributing](docs/contributing.md) - How to contribute to Timbre
 - [Changelog](CHANGELOG.md) - Version history and changes
+- [Commit Convention](docs/commit_convention.md)
 
 ## Building from Source
 
