@@ -14,15 +14,6 @@ versioning(${VERSION_FILE})
 
 project(timbre VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 
-# Enable multi-config generator support
-if(CMAKE_GENERATOR STREQUAL "Ninja Multi-Config")
-    message(STATUS "Using Ninja Multi-Config generator")
-    # Set default configurations if not specified
-    if(NOT CMAKE_CONFIGURATION_TYPES)
-        set(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Available build configurations" FORCE)
-    endif()
-endif()
-
 message(STATUS "Building for architecture: ${TARGET_ARCH}")
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 

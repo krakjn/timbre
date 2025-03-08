@@ -33,27 +33,21 @@ apt-get install -y \
 
 # Clean up apt cache
 rm -rf /var/lib/apt/lists/*
-EOF
 
-RUN <<EOF
+# Install Node.js and npm
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs
 npm install -g @commitlint/cli @commitlint/config-conventional auto-changelog
-EOF
 
 # Install Catch2 for amd64
-RUN <<EOF
 cd /opt
 git clone https://github.com/catchorg/Catch2.git
 cd Catch2
 git checkout v3.8.0
 cmake -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release
 cmake --build build --target install -j$(nproc)
-EOF
 
 # Install Catch2 for arm64
-RUN <<EOF
-cd /opt/Catch2
 mkdir -p build-arm64
 cd build-arm64
 cmake .. -G Ninja \
