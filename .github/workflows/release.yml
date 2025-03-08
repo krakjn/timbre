@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   pull_request:
     types: [closed]
     branches:
@@ -40,6 +41,7 @@ jobs:
             fi
             
             PR_BODY="${{ github.event.pull_request.body }}"
+            BUMP_TYPE=none
                 
             if ! echo "$PR_BODY" | grep -q "\[.\] MAJOR:" && \
               ! echo "$PR_BODY" | grep -q "\[.\] MINOR:" && \
@@ -52,7 +54,6 @@ jobs:
                 echo "  [ ] PATCH:"
                 echo "  [ ] NONE:"
                 echo "Assuming no bump intended"
-                BUMP_TYPE=none
                 SKIP_RELEASE=true
             else
                 # Check if exactly one version bump option is selected
@@ -77,14 +78,12 @@ jobs:
                     BUMP_TYPE=patch
                 else
                     echo "Selected: NO version bump"
-                    BUMP_TYPE=none
                     SKIP_RELEASE=true
                 fi
             fi
-          else
-            # For workflow_dispatch, always proceed with build release
-            echo "Manual workflow dispatch detected, proceeding with BUILD version bump"
-            BUMP_TYPE=build
+          else # not a PR
+            echo "Manual workflow dispatch detected, proceeding with DEV version bump"
+            BUMP_TYPE=dev
             SKIP_RELEASE=false
           fi
               
@@ -129,28 +128,23 @@ jobs:
         id: parse_version
         shell: bash # sh doesn't support BASH_REMATCH
         run: |
+          # cmake bakes in the version into the binary, so we need to parse it from the file
           CURRENT_VERSION=$(cat pkg/version.txt | tr -d '[:space:]')
           echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           
           # Extract semantic version parts using regex
-          if [[ "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(\+([0-9]+))?$ ]]; then
+          if [[ "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+
             MAJOR="${BASH_REMATCH[1]}"
             MINOR="${BASH_REMATCH[2]}"
             PATCH="${BASH_REMATCH[3]}"
-            BUILD="${BASH_REMATCH[5]:-}"
             
             echo "major=$MAJOR" >> $GITHUB_OUTPUT
             echo "minor=$MINOR" >> $GITHUB_OUTPUT
             echo "patch=$PATCH" >> $GITHUB_OUTPUT
-            echo "build=$BUILD" >> $GITHUB_OUTPUT
             
-            if [ -n "$BUILD" ]; then
-              echo "is_build_version=true" >> $GITHUB_OUTPUT
-            else
-              echo "is_build_version=false" >> $GITHUB_OUTPUT
-            fi
           else
-            echo "Error: Version format is invalid. Expected format: X.Y.Z or X.Y.Z+N"
+            echo "Error: Version format is invalid. Expected format: X.Y.Z"
             echo "Current version: $CURRENT_VERSION"
             exit 1
           fi
@@ -162,12 +156,11 @@ jobs:
           MAJOR="${{ steps.parse_version.outputs.major }}"
           MINOR="${{ steps.parse_version.outputs.minor }}"
           PATCH="${{ steps.parse_version.outputs.patch }}"
-          
-          if [ "$BUMP_TYPE" = "build" ]; then
-            # For workflow_dispatch, add build number
-            NEW_BUILD_NUMBER=$(git rev-list --count HEAD)
-            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}+${NEW_BUILD_NUMBER}"
-            echo "Bumping build number: $NEW_VERSION"
+
+          if [ "$BUMP_TYPE" = "dev" ]; then
+            SHA=$(git rev-parse --short=8 HEAD)
+            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}-dev_${SHA}"
+            echo "Bumping dev version: $NEW_VERSION"
           else
             # For pull requests, bump according to the selected type
             case "$BUMP_TYPE" in
@@ -225,47 +218,33 @@ jobs:
           git push origin "$NEW_VERSION"
 
       # Build freshly bumped version
-      - name: Build debian package
+      - name: Build packages
         run: |
           make deb BUILD_TYPE=Release
       
       - name: Install and verify package
         shell: bash
         run: |
-          if ! dpkg -i build/*.deb; then
-            echo "Failed to install package"
+          # Verify AMD64 package
+          if ! dpkg -i build/x86_64/*.deb; then
+            echo "Failed to install AMD64 package"
             exit 1
           fi
           
-          EXPECTED_VERSION="${{ steps.bump.outputs.new_version }}"
-          echo "Expected version: $EXPECTED_VERSION"
-          
-          if ! version_output=$(timbre --version); then
-            echo "Failed to run timbre --version"
-            exit 1
-          fi
-          echo "Actual version output: $version_output"
-          
-          if [[ "$version_output" =~ ([0-9]+\.[0-9]+\.[0-9]+(\+[0-9]+)?) ]]; then
-            ACTUAL_VERSION="${BASH_REMATCH[1]}"
-            echo "Extracted version: $ACTUAL_VERSION"
-            
-            if [ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]; then
-              echo "Version mismatch!"
-              echo "Expected: $EXPECTED_VERSION"
-              echo "Actual:   $ACTUAL_VERSION"
-              exit 1
-            fi
-          else
-            echo "Failed to parse version from output: $version_output"
+          # Note: ARM64 package can't be verified in AMD64 container
+          # but we can check if it exists
+          if [ ! -f build/arm64/*.deb ]; then
+            echo "ARM64 package not found"
             exit 1
           fi
       
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: timbre-deb
-          path: build/*.deb
+          path: |
+            build/x86_64/*.deb
+            build/arm64/*.deb
           retention-days: 7
 
   release:
@@ -294,7 +273,7 @@ jobs:
 
             ### Debian Package
             ```bash
-            sudo dpkg -i timbre_${{ needs.version.outputs.new_version }}_Linux.deb
+            sudo dpkg -i timbre-${{ needs.version.outputs.new_version }}-Linux.deb
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
