@@ -94,6 +94,12 @@ include(cmake/debian.cmake)
 
 if(BUILD_TESTS)
     enable_testing()
+    
+    # For cross-compilation, specify the architecture-specific paths
+    if(CMAKE_CROSSCOMPILING)
+        set(CMAKE_PREFIX_PATH /usr/lib/${CMAKE_SYSTEM_PROCESSOR}-linux-gnu)
+    endif()
+    
     find_package(Catch2 QUIET)
     if(NOT Catch2_FOUND)
         include(FetchContent)
@@ -104,6 +110,7 @@ if(BUILD_TESTS)
         )
         FetchContent_MakeAvailable(Catch2)
     endif()
+    
     add_executable(timbre_tests tests/test_timbre.cpp)
     target_link_libraries(timbre_tests PRIVATE timbre_lib Catch2::Catch2WithMain)
     target_include_directories(timbre_tests PRIVATE
@@ -113,7 +120,13 @@ if(BUILD_TESTS)
     
     include(CTest)
     include(Catch)
-    catch_discover_tests(timbre_tests)
+
+    # Skip running tests during configuration for cross-compilation
+    if(CMAKE_CROSSCOMPILING)
+        message(STATUS "Cross-compiling: Skipping test discovery")
+    else()
+        catch_discover_tests(timbre_tests)
+    endif()
 endif()
 
 # Update package name to include architecture
