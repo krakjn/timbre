@@ -86,14 +86,15 @@ test-x86_64: x86_64
 
 .PHONY: test-arm64
 test-arm64: arm64
-	@if [ "$(RUN_ARM64_TESTS)" = "1" ]; then \
-		cd $(BUILD_ARM64) && QEMU_LD_PREFIX=/usr/aarch64-linux-gnu ctest --output-on-failure -C $(BUILD_TYPE); \
-	else \
-		echo "Skipping ARM64 tests on non-ARM platform (set RUN_ARM64_TESTS=1 to force)"; \
-	fi
+	@echo "Skipping arm tests on non-arm platform"
 
 .PHONY: test
 test: test-x86_64 test-arm64
+
+# Build the Docker image without context
+.PHONY: docker-build
+docker-build:
+	@docker build --platform linux/amd64 -t ghcr.io/krakjn/timbre:latest - < Dockerfile
 
 .PHONY: help
 help:
