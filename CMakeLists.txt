@@ -113,7 +113,13 @@ if(BUILD_TESTS)
     
     include(CTest)
     include(Catch)
-    catch_discover_tests(timbre_tests)
+    
+    # Skip running tests during configuration for cross-compilation
+    if(CMAKE_CROSSCOMPILING)
+        message(STATUS "Cross-compiling: Skipping test discovery")
+    else()
+        catch_discover_tests(timbre_tests)
+    endif()
 endif()
 
 # Update package name to include architecture

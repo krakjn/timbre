@@ -86,7 +86,11 @@ test-x86_64: x86_64
 
 .PHONY: test-arm64
 test-arm64: arm64
-	@cd $(BUILD_ARM64) && ctest --output-on-failure -C $(BUILD_TYPE)
+	@if [ "$(RUN_ARM64_TESTS)" = "1" ]; then \
+		cd $(BUILD_ARM64) && QEMU_LD_PREFIX=/usr/aarch64-linux-gnu ctest --output-on-failure -C $(BUILD_TYPE); \
+	else \
+		echo "Skipping ARM64 tests on non-ARM platform (set RUN_ARM64_TESTS=1 to force)"; \
+	fi
 
 .PHONY: test
 test: test-x86_64 test-arm64

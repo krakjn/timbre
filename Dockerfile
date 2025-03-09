@@ -5,15 +5,16 @@ LABEL org.opencontainers.image.source="https://github.com/krakjn/timbre"
 
 RUN <<EOF
 export DEBIAN_FRONTEND=noninteractive
-dpkg --add-architecture arm64
 apt-get update
 apt-get install -y \
+    binfmt-support \
     build-essential \
     ca-certificates \
     clang-format \
     clang-tidy \
     cmake \
     cppcheck \
+    crossbuild-essential-arm64 \
     curl \
     debhelper \
     devscripts \
@@ -23,18 +24,30 @@ apt-get install -y \
     g++ \
     git \
     jq \
-    libcurl4-openssl-dev \
+    libc6-arm64-cross \
+    libc6-dev-arm64-cross \
+    libstdc++6-arm64-cross \
+    dpkg-cross \
     make \
-    crossbuild-essential-arm64 \
     ninja-build \
     pkg-config \
+    qemu-user-static \
     tzdata \
     wget
 
+# Set up QEMU for ARM64 emulation
+update-binfmts --enable qemu-aarch64
+
+# Create symlink for ARM64 dynamic linker
+mkdir -p /lib
+ln -sf /usr/aarch64-linux-gnu/lib/ld-linux-aarch64.so.1 /lib/ld-linux-aarch64.so.1
+
 # Clean up apt cache
 rm -rf /var/lib/apt/lists/*
+EOF
 
 # Install Node.js and npm
+RUN <<EOF
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 apt-get install -y nodejs
 npm install -g @commitlint/cli @commitlint/config-conventional auto-changelog
