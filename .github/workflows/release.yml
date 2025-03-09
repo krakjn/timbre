@@ -24,6 +24,7 @@ jobs:
       
       - name: Validate PR template
         id: validate
+        shell: bash
         run: |
           BUMP_TYPE=none
           SKIP_RELEASE=false
@@ -151,6 +152,7 @@ jobs:
       
       - name: Bump version
         id: bump
+        shell: bash
         run: |
           BUMP_TYPE="${{ needs.validate.outputs.bump_type }}"
           MAJOR="${{ steps.parse_version.outputs.major }}"
@@ -264,7 +266,9 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: "*.deb"
+          files: |
+            x86_64/*.deb
+            arm64/*.deb
           draft: ${{ needs.validate.outputs.skip_release == 'true' }}
           prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}
@@ -273,7 +277,11 @@ jobs:
 
             ### Debian Package
             ```bash
-            sudo dpkg -i timbre-${{ needs.version.outputs.new_version }}-Linux.deb
+            # For AMD64 (x86_64)
+            sudo dpkg -i timbre_${{ needs.version.outputs.new_version }}_amd64.deb
+            
+            # For ARM64
+            sudo dpkg -i timbre_${{ needs.version.outputs.new_version }}_arm64.deb
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
