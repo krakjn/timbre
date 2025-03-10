@@ -183,9 +183,20 @@ jobs:
           # always write a clean semver to pkg/version.txt
           echo "$NEW_VERSION" > pkg/version.txt
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      # Dev releases don't get a tag
+      - name: Create Git tag
+        if: ${{ needs.validate.outputs.bump_type != 'dev' }}
+        shell: bash
+        run: |
+          TAG_NAME="${{ steps.bump.outputs.new_version }}"
+          git tag -a "$TAG_NAME" -m "Release: $TAG_NAME"
+          git push origin "$TAG_NAME"
       
+      # now with a fresh tag, generate a changelog
       - name: Commit version bump with changelog
         id: changelog
+        shell: bash
         if: ${{ needs.validate.outputs.bump_type != 'dev' }}
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
@@ -207,15 +218,6 @@ jobs:
             # For workflow_dispatch, push to the current branch
             git push origin HEAD:${GITHUB_REF#refs/heads/}
           fi
-      
-      # Dev releases don't get a tag
-      - name: Create Git tag
-        if: ${{ needs.validate.outputs.bump_type != 'dev' }}
-        shell: bash
-        run: |
-          TAG_NAME="${{ steps.bump.outputs.new_version }}"
-          git tag -a "$TAG_NAME" -m "Release: $TAG_NAME"
-          git push origin "$TAG_NAME"
 
       # Build freshly bumped version
       - name: Build packages
