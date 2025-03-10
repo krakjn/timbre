@@ -2,11 +2,9 @@
   "commitLimit": false,
   "hideCredit": true,
   "breakingPattern": "BREAKING CHANGE:",
-  "issuePattern": "#\\d+",
   "issueUrl": "https://github.com/krakjn/timbre/issues/{id}",
   "commitPattern": "^(feat|fix|perf|refactor)",
   "ignoreCommitPattern": "^(chore|docs|style|test|ci):",
   "sortCommits": "date",
-  "hideEmptyReleases": true,
-  "output": "CHANGELOG.md"
+  "hideEmptyReleases": true
 }
