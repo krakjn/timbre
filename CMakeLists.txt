@@ -128,6 +128,3 @@ if(BUILD_TESTS)
         catch_discover_tests(timbre_tests)
     endif()
 endif()
-
-# Update package name to include architecture
-set(CPACK_PACKAGE_FILE_NAME "timbre_${PROJECT_VERSION}_${TARGET_ARCH}")
