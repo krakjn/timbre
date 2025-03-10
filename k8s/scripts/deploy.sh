@@ -34,25 +34,16 @@ Deploying Timbre to Kubernetes
 Version:         ${VERSION}
 Docker Registry: ${DOCKER_REGISTRY}
 Namespace:       ${NAMESPACE}
-------------------------------
+-----------------------------
 EOF
 
-# Apply namespace first
-cat <<EOF
-
-Creating namespace ${NAMESPACE}...
-EOF
-
+# Create namespace
 kubectl apply -f k8s/namespace.yaml
 
-# Process template files and apply to cluster
+# Apply Kubernetes configs
 for file in k8s/*.yaml; do
   if [[ "$file" != "k8s/namespace.yaml" && "$file" != "k8s/kind-config.yaml" ]]; then
-    cat <<EOF
-
-Applying ${file}...
-EOF
-    
+    echo "Applying ${file}..."
     sed -e "s|\${DOCKER_REGISTRY}|$DOCKER_REGISTRY|g" \
         -e "s|\${VERSION}|$VERSION|g" \
         -e "s|namespace: timbre|namespace: $NAMESPACE|g" \
@@ -60,33 +51,15 @@ EOF
   fi
 done
 
-cat <<EOF
+echo "Waiting for pods to be ready..."
+kubectl get pods -n $NAMESPACE -l app=timbre -w
 
-Waiting for deployment to be ready...
-EOF
+echo "deployed to: http://localhost:30000"
 
-kubectl rollout status deployment/timbre -n $NAMESPACE --timeout=300s
-
-cat <<EOF
-
-Deployment complete!
-To access the application, use: http://localhost:30000
-
-EOF
-
-# Show pod status
-cat <<EOF
-Pod status:
-EOF
-
+echo "Pod status:"
 kubectl get pods -n $NAMESPACE -l app=timbre
 
-# Show logs from the first pod
 POD_NAME=$(kubectl get pods -n $NAMESPACE -l app=timbre -o jsonpath="{.items[0].metadata.name}")
 
-cat <<EOF
-
-Logs from pod ${POD_NAME}:
-EOF
-
+echo "Logs from pod ${POD_NAME}:"
 kubectl logs $POD_NAME -n $NAMESPACE 

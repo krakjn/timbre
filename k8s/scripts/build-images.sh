@@ -1,12 +1,10 @@
 #!/bin/bash
 set -e
 
-# Default values
 DOCKER_REGISTRY=${DOCKER_REGISTRY:-"ghcr.io/krakjn"}
 VERSION=$(cat pkg/version.txt | tr -d '[:space:]')
 PUSH=${PUSH:-false}
 
-# Parse command line arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
     --registry)
@@ -37,61 +35,39 @@ Push:            ${PUSH}
 -----------------------------
 EOF
 
-# Enable Docker experimental features for manifest support
 export DOCKER_CLI_EXPERIMENTAL=enabled
 
-# Build images for each architecture
-cat <<EOF
 
-Building x86_64 (amd64) image...
-EOF
-
+echo "Building x86_64 (amd64) image..."
 docker build \
   --build-arg ARCH=x86_64 \
   -t ${DOCKER_REGISTRY}/timbre:${VERSION}-amd64 \
   --platform linux/amd64 \
   -f k8s/Dockerfile.app .
 
-cat <<EOF
-
-Building arm64 image...
-EOF
-
+echo "Building arm64 image..."
 docker build \
   --build-arg ARCH=arm64 \
   -t ${DOCKER_REGISTRY}/timbre:${VERSION}-arm64 \
   --platform linux/arm64 \
   -f k8s/Dockerfile.app .
 
-cat <<EOF
-
-Creating multi-architecture manifest...
-EOF
-
+echo "Creating multi-architecture manifest..."
 docker manifest create \
   ${DOCKER_REGISTRY}/timbre:${VERSION} \
   --amend ${DOCKER_REGISTRY}/timbre:${VERSION}-amd64 \
   --amend ${DOCKER_REGISTRY}/timbre:${VERSION}-arm64
 
-# Also tag as latest if not a dev version
 if [[ "$VERSION" != *"-dev"* ]]; then
-  cat <<EOF
-
-Creating latest tag...
-EOF
-
+  echo "Creating latest tag..."
   docker manifest create \
     ${DOCKER_REGISTRY}/timbre:latest \
-    --amend ${DOCKER_REGISTRY}/timbre:${VERSION}-amd64 \
-    --amend ${DOCKER_REGISTRY}/timbre:${VERSION}-arm64
+    ${DOCKER_REGISTRY}/timbre:${VERSION}-amd64 \
+    ${DOCKER_REGISTRY}/timbre:${VERSION}-arm64
 fi
 
-# Push images if requested
 if [ "$PUSH" = true ]; then
-  cat <<EOF
-
-Pushing images to registry...
-EOF
+  echo "Pushing images to registry..."
 
   docker push ${DOCKER_REGISTRY}/timbre:${VERSION}-amd64
   docker push ${DOCKER_REGISTRY}/timbre:${VERSION}-arm64
@@ -101,8 +77,3 @@ EOF
     docker manifest push ${DOCKER_REGISTRY}/timbre:latest
   fi
 fi
-
-cat <<EOF
-
-Build complete!
-EOF 

@@ -1,7 +1,6 @@
 #!/bin/bash
 set -e
 
-# Check if kind is installed
 if ! command -v kind &> /dev/null; then
     echo "kind is not installed. Installing..."
     curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-$(uname)-amd64
@@ -9,7 +8,6 @@ if ! command -v kind &> /dev/null; then
     sudo mv ./kind /usr/local/bin/kind
 fi
 
-# Check if kubectl is installed
 if ! command -v kubectl &> /dev/null; then
     echo "kubectl is not installed. Installing..."
     curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
@@ -17,11 +15,9 @@ if ! command -v kubectl &> /dev/null; then
     sudo mv kubectl /usr/local/bin/
 fi
 
-# Create the cluster using the existing kind-config.yaml
 echo "Creating Kubernetes cluster with kind..."
 kind create cluster --name timbre-cluster --config k8s/kind-config.yaml
 
-# Wait for the cluster to be ready
 echo "Waiting for cluster to be ready..."
 kubectl wait --for=condition=Ready nodes --all --timeout=300s
 

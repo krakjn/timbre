@@ -1,5 +1,5 @@
+FROM ubuntu:22.04 AS builder
 ARG ARCH=x86_64
-FROM ubuntu:22.04 as builder
 
 RUN <<EOF
 apt-get update
@@ -16,14 +16,12 @@ EOF
 WORKDIR /app
 COPY . .
 
-ARG ARCH
-RUN /bin/bash <<EOF
-set -e
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain_${ARCH:-x86_64}.cmake -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release -j$(nproc)
-EOF
+RUN set -e && \
+    cmake -B build/${ARCH} -S . -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain_${ARCH}.cmake && \
+    cmake --build build/${ARCH} -j
 
 FROM ubuntu:22.04
+ARG ARCH=x86_64
 
 RUN <<EOF
 apt-get update
@@ -32,8 +30,7 @@ rm -rf /var/lib/apt/lists/*
 mkdir -p /etc/timbre /var/log/timbre
 EOF
 
-
-COPY --from=builder /app/build/${ARCH:-x86_64}/Release/timbre /usr/local/bin/timbre
+COPY --from=builder /app/build/${ARCH}/timbre /usr/local/bin/timbre
 COPY cfg/timbre.toml /etc/timbre/config.toml
 
 # Set up a non-root user
@@ -46,5 +43,4 @@ WORKDIR /home/timbre
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD [ "timbre", "--version" ]
 
-ENTRYPOINT ["timbre"]
-CMD ["--config", "/etc/timbre/config.toml"] 
+CMD ["/bin/bash"] 

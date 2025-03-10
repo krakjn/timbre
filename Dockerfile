@@ -48,7 +48,7 @@ cmake -B build -G Ninja \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DBUILD_TESTING=OFF \
     -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target install -j$(nproc)
+cmake --build build --target install -j
 
 # NOTE: Due to cross-compilation, we are not installing Catch2 for arm64.
 #       Arm runtime with qemu is needed to run tests.

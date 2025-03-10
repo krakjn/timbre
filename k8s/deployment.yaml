@@ -7,7 +7,7 @@ metadata:
     app: timbre
     version: "${VERSION}"
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: timbre
@@ -16,14 +16,11 @@ spec:
       labels:
         app: timbre
         version: "${VERSION}"
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
     spec:
       containers:
       - name: timbre
-        image: ${DOCKER_REGISTRY}/timbre:${VERSION}
-        imagePullPolicy: Always
+        image: ${DOCKER_REGISTRY}/timbre:${VERSION}-amd64
+        imagePullPolicy: Never
         ports:
         - name: http
           containerPort: 8080
@@ -40,20 +37,6 @@ spec:
           requests:
             cpu: "100m"
             memory: "128Mi"
-        livenessProbe:
-          exec:
-            command:
-            - timbre
-            - --version
-          initialDelaySeconds: 5
-          periodSeconds: 30
-        readinessProbe:
-          exec:
-            command:
-            - timbre
-            - --version
-          initialDelaySeconds: 5
-          periodSeconds: 10
         env:
         - name: TIMBRE_LOG_LEVEL
           value: "info"

@@ -7,7 +7,6 @@
 # Default build type is Debug
 BUILD_TYPE ?= Debug
 PREFIX ?= /usr/local/bin
-NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
 
 # Build directories with precise architecture names
 BUILD_X86_64 = build/x86_64
@@ -29,11 +28,11 @@ $(BUILD_ARM64):
 
 .PHONY: x86_64
 x86_64: $(BUILD_X86_64)
-	@cmake --build $(BUILD_X86_64) --config $(BUILD_TYPE) -j$(NPROC)
+	@cmake --build $(BUILD_X86_64) --config $(BUILD_TYPE) -j
 
 .PHONY: arm64
 arm64: $(BUILD_ARM64)
-	@cmake --build $(BUILD_ARM64) --config $(BUILD_TYPE) -j$(NPROC)
+	@cmake --build $(BUILD_ARM64) --config $(BUILD_TYPE) -j
 
 .PHONY: all
 all: x86_64 arm64
