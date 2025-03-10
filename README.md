@@ -92,17 +92,51 @@ error = "error|exception|fail"
 
 ## Building from Source
 
+### Prerequisites
+
+- CMake 3.14 or higher
+- Ninja build system
+- C++17 compatible compiler
+- Catch2 (for tests, optional)
+
+### Build Options
+
 ```bash
 # Clone repository
 git clone https://github.com/krakjn/timbre.git
 cd timbre
 
-# Build
-make BUILD_TYPE=Release
+# Build Targets
+make                        # Build x86_64 Debug build (default)
+make BUILD_TYPE=Release     # Build x86_64 Release build
+make arm64                  # Build ARM64 Debug build
+make all                    # Build both x86_64 and ARM64
 
-# Install
-sudo make install
+# Package Creation
+make deb                    # Create Debian packages for both architectures
+make deb-x86_64             # Create x86_64 Debian package only
+make deb-arm64              # Create ARM64 Debian package only
+
+# Testing
+make test                   # Run all tests
+make test-x86_64            # Run x86_64 tests only
+
+# Installation
+sudo make install-x86_64    # Install x86_64 build
+sudo make install-arm64     # Install ARM64 build
+sudo make uninstall         # Uninstall current build
+
+# Development Container
+make enter                  # Enter development container
+make docker-build           # Build development container
 ```
+
+### Build Types
+
+- `Debug`: Default build with debug symbols and no optimizations
+- `Release`: Optimized build with LTO and architecture-specific optimizations
+- `RelWithDebInfo`: Release build with debug symbols
+
 
 ## LICENSE
 
