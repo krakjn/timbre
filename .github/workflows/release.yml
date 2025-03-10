@@ -42,7 +42,6 @@ jobs:
             fi
             
             PR_BODY="${{ github.event.pull_request.body }}"
-            BUMP_TYPE=none
                 
             if ! echo "$PR_BODY" | grep -q "\[.\] MAJOR:" && \
               ! echo "$PR_BODY" | grep -q "\[.\] MINOR:" && \
@@ -187,7 +186,7 @@ jobs:
       
       - name: Commit version bump with changelog
         id: changelog
-        if: ${{ needs.validate.outputs.skip_release != 'true' }}
+        if: ${{ needs.validate.outputs.bump_type != 'dev' }}
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           
@@ -219,7 +218,7 @@ jobs:
         run: |
           TAG_NAME=""
           SEMVER="${{ steps.bump.outputs.new_version }}"
-          if [[ "${{ needs.validate.outputs.skip_release }}" == "true" ]]; then
+          if [[ "${{ needs.validate.outputs.bump_type }}" == "dev" ]]; then
             SHA=$(git rev-parse --short=8 HEAD)
             TAG_NAME="${SEMVER}-dev_${SHA}"
           else
