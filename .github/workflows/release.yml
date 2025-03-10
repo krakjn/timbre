@@ -213,18 +213,13 @@ jobs:
             git push origin HEAD:${GITHUB_REF#refs/heads/}
           fi
       
+      # Dev releases don't get a tag
       - name: Create Git tag
+        if: ${{ needs.validate.outputs.bump_type != 'dev' }}
         shell: bash
         run: |
-          TAG_NAME=""
-          SEMVER="${{ steps.bump.outputs.new_version }}"
-          if [[ "${{ needs.validate.outputs.bump_type }}" == "dev" ]]; then
-            SHA=$(git rev-parse --short=8 HEAD)
-            TAG_NAME="${SEMVER}-dev_${SHA}"
-          else
-            TAG_NAME="${SEMVER}"
-          fi
-          git tag -a "$TAG_NAME" -m "Release: $SEMVER"
+          TAG_NAME="${{ steps.bump.outputs.new_version }}"
+          git tag -a "$TAG_NAME" -m "Release: $TAG_NAME"
           git push origin "$TAG_NAME"
 
       # Build freshly bumped version
