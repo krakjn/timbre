@@ -38,9 +38,11 @@ chmod +x scripts/build-images.sh
 ```
 
 This script will:
-1. Build Docker images for both x86_64 and arm64 architectures
-2. Create a multi-architecture manifest
-3. Optionally push the images to the specified registry
+1. Build separate Docker images for x86_64 and arm64 architectures
+2. Create a multi-architecture manifest that combines both images
+3. Optionally push the images and manifest to the specified registry
+
+> **Note:** Docker experimental features must be enabled for manifest support. The script will handle this automatically.
 
 ## Deploying to Kubernetes
 
@@ -49,7 +51,10 @@ You can deploy Timbre to Kubernetes using the deployment script:
 ```bash
 # Deploy to Kubernetes
 chmod +x scripts/deploy.sh
-./scripts/deploy.sh --registry ghcr.io/krakjn --version $(cat pkg/version.txt) --namespace timbre-prod
+./scripts/deploy.sh --registry ghcr.io/krakjn --version $(cat pkg/version.txt)
+
+# To deploy to a different namespace
+./scripts/deploy.sh --registry ghcr.io/krakjn --version $(cat pkg/version.txt) --namespace my-namespace
 ```
 
 This script will:
@@ -62,6 +67,7 @@ This script will:
 
 The Kubernetes manifests are located in the `k8s/` directory:
 
+- `namespace.yaml`: Defines the Timbre namespace
 - `deployment.yaml`: Defines the Timbre deployment with proper resource limits and probes
 - `service.yaml`: Exposes the Timbre service on port 30000
 - `configmap.yaml`: Contains the Timbre configuration in TOML format
@@ -91,28 +97,56 @@ The CI/CD pipeline automatically:
 - Only tags as `latest` for release versions (without `-dev` suffix)
 - Includes the version in Kubernetes deployment labels
 
+## Accessing the Application
+
+After deployment, you can access the application at:
+
+```
+http://localhost:30000
+```
+
+If you're using a remote cluster, replace `localhost` with the appropriate hostname or IP address.
+
+## Validating the Deployment
+
+You can validate the deployment using the following commands:
+
+```bash
+# Check if the pods are running
+kubectl get pods -n timbre -l app=timbre
+
+# Check the logs
+kubectl logs -n timbre -l app=timbre
+
+# Check the service
+kubectl get service timbre -n timbre
+
+# Test the application
+curl http://localhost:30000/version
+```
+
 ## Troubleshooting
 
 If you encounter issues with the deployment, check the following:
 
 1. Pod status:
    ```bash
-   kubectl describe pod -n timbre-prod -l app=timbre
+   kubectl describe pod -n timbre -l app=timbre
    ```
 
 2. Pod logs:
    ```bash
-   kubectl logs -n timbre-prod -l app=timbre
+   kubectl logs -n timbre -l app=timbre
    ```
 
 3. Service status:
    ```bash
-   kubectl describe service timbre -n timbre-prod
+   kubectl describe service timbre -n timbre
    ```
 
 4. Events:
    ```bash
-   kubectl get events -n timbre-prod --sort-by='.lastTimestamp'
+   kubectl get events -n timbre --sort-by='.lastTimestamp'
    ```
 
 ## Security Considerations

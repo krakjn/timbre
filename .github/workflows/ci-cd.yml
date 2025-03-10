@@ -49,11 +49,11 @@ jobs:
     
     - name: Build and push Docker images
       run: |
-        chmod +x ./scripts/build-images.sh
+        chmod +x ./k8s/scripts/build-images.sh
         if [ "${{ github.event_name }}" != "pull_request" ]; then
-          ./scripts/build-images.sh --registry ${{ env.DOCKER_REGISTRY }} --version ${{ steps.version.outputs.version }} --push
+          ./k8s/scripts/build-images.sh --registry ${{ env.DOCKER_REGISTRY }} --version ${{ steps.version.outputs.version }} --push
         else
-          ./scripts/build-images.sh --registry ${{ env.DOCKER_REGISTRY }} --version ${{ steps.version.outputs.version }}
+          ./k8s/scripts/build-images.sh --registry ${{ env.DOCKER_REGISTRY }} --version ${{ steps.version.outputs.version }}
         fi
 
   deploy:
@@ -82,20 +82,20 @@ jobs:
     
     - name: Deploy to Kubernetes
       run: |
-        chmod +x ./scripts/deploy.sh
-        ./scripts/deploy.sh --registry ${{ env.DOCKER_REGISTRY }} --version ${{ steps.version.outputs.version }} --namespace timbre-prod
+        chmod +x ./k8s/scripts/deploy.sh
+        ./k8s/scripts/deploy.sh --registry ${{ env.DOCKER_REGISTRY }} --version ${{ steps.version.outputs.version }}
     
     - name: Verify deployment
       run: |
-        kubectl get pods -n timbre-prod -l app=timbre
+        kubectl get pods -n timbre -l app=timbre
         
         # Wait for pods to be ready
-        kubectl wait --for=condition=ready pods -l app=timbre -n timbre-prod --timeout=300s
+        kubectl wait --for=condition=ready pods -l app=timbre -n timbre --timeout=300s
         
         # Get pod name
-        POD_NAME=$(kubectl get pods -n timbre-prod -l app=timbre -o jsonpath="{.items[0].metadata.name}")
+        POD_NAME=$(kubectl get pods -n timbre -l app=timbre -o jsonpath="{.items[0].metadata.name}")
         
         # Check logs
-        kubectl logs $POD_NAME -n timbre-prod
+        kubectl logs $POD_NAME -n timbre
         
         echo "Deployment verified successfully!" 

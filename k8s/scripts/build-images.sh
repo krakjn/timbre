@@ -28,34 +28,58 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-echo "Building Timbre Docker images version $VERSION"
-echo "Docker Registry: $DOCKER_REGISTRY"
-echo "Push: $PUSH"
+cat <<EOF
+Building Timbre Docker images
+-----------------------------
+Version:         ${VERSION}
+Docker Registry: ${DOCKER_REGISTRY}
+Push:            ${PUSH}
+-----------------------------
+EOF
 
-# Build x86_64 image
-echo "Building x86_64 image..."
+# Enable Docker experimental features for manifest support
+export DOCKER_CLI_EXPERIMENTAL=enabled
+
+# Build images for each architecture
+cat <<EOF
+
+Building x86_64 (amd64) image...
+EOF
+
 docker build \
   --build-arg ARCH=x86_64 \
   -t ${DOCKER_REGISTRY}/timbre:${VERSION}-amd64 \
-  -f Dockerfile.app .
+  --platform linux/amd64 \
+  -f k8s/Dockerfile.app .
 
-# Build arm64 image
-echo "Building arm64 image..."
+cat <<EOF
+
+Building arm64 image...
+EOF
+
 docker build \
   --build-arg ARCH=arm64 \
   -t ${DOCKER_REGISTRY}/timbre:${VERSION}-arm64 \
-  -f Dockerfile.app .
+  --platform linux/arm64 \
+  -f k8s/Dockerfile.app .
 
-# Create manifest for multi-arch image
-echo "Creating multi-arch manifest..."
+cat <<EOF
+
+Creating multi-architecture manifest...
+EOF
+
 docker manifest create \
   ${DOCKER_REGISTRY}/timbre:${VERSION} \
   --amend ${DOCKER_REGISTRY}/timbre:${VERSION}-amd64 \
   --amend ${DOCKER_REGISTRY}/timbre:${VERSION}-arm64
 
-# Also tag as latest if requested
+# Also tag as latest if not a dev version
 if [[ "$VERSION" != *"-dev"* ]]; then
-  echo "Creating latest tag..."
+  cat <<EOF
+
+Creating latest tag...
+EOF
+
   docker manifest create \
     ${DOCKER_REGISTRY}/timbre:latest \
     --amend ${DOCKER_REGISTRY}/timbre:${VERSION}-amd64 \
@@ -64,7 +88,11 @@ fi
 
 # Push images if requested
 if [ "$PUSH" = true ]; then
-  echo "Pushing images..."
+  cat <<EOF
+
+Pushing images to registry...
+EOF
+
   docker push ${DOCKER_REGISTRY}/timbre:${VERSION}-amd64
   docker push ${DOCKER_REGISTRY}/timbre:${VERSION}-arm64
   docker manifest push ${DOCKER_REGISTRY}/timbre:${VERSION}
@@ -74,4 +102,7 @@ if [ "$PUSH" = true ]; then
   fi
 fi
 
-echo "Build complete!" 
+cat <<EOF
+
+Build complete!
+EOF 

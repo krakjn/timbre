@@ -17,22 +17,9 @@ if ! command -v kubectl &> /dev/null; then
     sudo mv kubectl /usr/local/bin/
 fi
 
-# Create a kind cluster configuration
-cat > kind-config.yaml << EOF
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: control-plane
-  extraPortMappings:
-  - containerPort: 30000
-    hostPort: 30000
-    protocol: TCP
-- role: worker
-EOF
-
-# Create the cluster
+# Create the cluster using the existing kind-config.yaml
 echo "Creating Kubernetes cluster with kind..."
-kind create cluster --name timbre-cluster --config kind-config.yaml
+kind create cluster --name timbre-cluster --config k8s/kind-config.yaml
 
 # Wait for the cluster to be ready
 echo "Waiting for cluster to be ready..."
