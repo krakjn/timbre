@@ -280,7 +280,11 @@ jobs:
 
             ### Debian Package
             ```bash
-            sudo dpkg -i timbre_${{ needs.version.outputs.new_version }}*.deb
+            # For AMD64 (x86_64)
+            sudo dpkg -i timbre-${{ needs.version.outputs.new_version }}-amd64.deb
+            
+            # For ARM64
+            sudo dpkg -i timbre-${{ needs.version.outputs.new_version }}-arm64.deb
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
