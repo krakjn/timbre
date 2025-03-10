@@ -199,7 +199,7 @@ jobs:
         shell: bash
         if: ${{ needs.validate.outputs.bump_type != 'dev' }}
         run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~2 2>/dev/null || echo "")
           auto-changelog --config cfg/auto-changelog --starting-version $PREV_TAG --output RELEASE_NOTES.md
           auto-changelog --config cfg/auto-changelog --output CHANGELOG.md
 
