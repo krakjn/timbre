@@ -1,16 +1,12 @@
 {
-  "template": "keepachangelog",
-  "unreleased": true,
   "commitLimit": false,
   "hideCredit": true,
   "breakingPattern": "BREAKING CHANGE:",
   "issuePattern": "#\\d+",
   "issueUrl": "https://github.com/krakjn/timbre/issues/{id}",
-  "commitGroups": [
-    {
-      "title": "Notable Changes",
-      "regexp": "^(feat|fix|refactor|perf)"
-    }
-  ],
+  "commitPattern": "^(feat|fix|perf|refactor)",
+  "ignoreCommitPattern": "^(chore|docs|style|test|ci):",
+  "sortCommits": "date",
+  "hideEmptyReleases": true,
   "output": "CHANGELOG.md"
 }
