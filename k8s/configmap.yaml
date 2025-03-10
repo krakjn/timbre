@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: timbre-config
+  labels:
+    app: timbre
+data:
+  config.toml: |
+    # Timbre configuration
+    [log]
+    level = "info"
+    format = "json"
+    path = "/var/log/timbre"
+    
+    [app]
+    environment = "production"
+  
+  environment: "production" 

@@ -1,0 +1,101 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  DOCKER_REGISTRY: ghcr.io/krakjn
+  IMAGE_NAME: timbre
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: arm64
+    
+    - name: Login to GitHub Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract version
+      id: version
+      run: |
+        VERSION=$(cat pkg/version.txt | tr -d '[:space:]')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+    
+    - name: Build and push Docker images
+      run: |
+        chmod +x ./scripts/build-images.sh
+        if [ "${{ github.event_name }}" != "pull_request" ]; then
+          ./scripts/build-images.sh --registry ${{ env.DOCKER_REGISTRY }} --version ${{ steps.version.outputs.version }} --push
+        else
+          ./scripts/build-images.sh --registry ${{ env.DOCKER_REGISTRY }} --version ${{ steps.version.outputs.version }}
+        fi
+
+  deploy:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+    
+    - name: Set up kubeconfig
+      run: |
+        mkdir -p $HOME/.kube
+        echo "${{ secrets.KUBE_CONFIG }}" > $HOME/.kube/config
+        chmod 600 $HOME/.kube/config
+    
+    - name: Extract version
+      id: version
+      run: |
+        VERSION=$(cat pkg/version.txt | tr -d '[:space:]')
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+    
+    - name: Deploy to Kubernetes
+      run: |
+        chmod +x ./scripts/deploy.sh
+        ./scripts/deploy.sh --registry ${{ env.DOCKER_REGISTRY }} --version ${{ steps.version.outputs.version }} --namespace timbre-prod
+    
+    - name: Verify deployment
+      run: |
+        kubectl get pods -n timbre-prod -l app=timbre
+        
+        # Wait for pods to be ready
+        kubectl wait --for=condition=ready pods -l app=timbre -n timbre-prod --timeout=300s
+        
+        # Get pod name
+        POD_NAME=$(kubectl get pods -n timbre-prod -l app=timbre -o jsonpath="{.items[0].metadata.name}")
+        
+        # Check logs
+        kubectl logs $POD_NAME -n timbre-prod
+        
+        echo "Deployment verified successfully!" 

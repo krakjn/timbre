@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: timbre
+  labels:
+    app: timbre
+    version: "${VERSION}"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: timbre
+  template:
+    metadata:
+      labels:
+        app: timbre
+        version: "${VERSION}"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      containers:
+      - name: timbre
+        image: ${DOCKER_REGISTRY}/timbre:${VERSION}
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/timbre
+        - name: logs-volume
+          mountPath: /var/log/timbre
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+        livenessProbe:
+          exec:
+            command:
+            - timbre
+            - --version
+          initialDelaySeconds: 5
+          periodSeconds: 30
+        readinessProbe:
+          exec:
+            command:
+            - timbre
+            - --version
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        env:
+        - name: TIMBRE_LOG_LEVEL
+          value: "info"
+        - name: TIMBRE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: timbre-config
+              key: environment
+      volumes:
+      - name: config-volume
+        configMap:
+          name: timbre-config
+      - name: logs-volume
+        emptyDir: {} 
