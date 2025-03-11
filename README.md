@@ -41,23 +41,6 @@ curl -LO https://github.com/krakjn/timbre/releases/latest/download/timbre_*_arm6
 sudo dpkg -i timbre_*_arm64.deb
 ```
 
-The development container also supports both architectures:
-```bash
-# It will automatically use the correct architecture for your system
-docker run -it --rm -v $(pwd):/app ghcr.io/krakjn/timbre:latest
-```
-
-This setup will:
-1. Build both AMD64 and ARM64 packages
-2. Create multi-arch Docker images
-3. Provide architecture-specific Debian packages
-4. Support cross-compilation in the development container
-
-Would you like me to:
-1. Add more architectures?
-2. Explain any part in more detail?
-3. Add more build configurations?
-
 ### Basic Usage
 
 ```bash
