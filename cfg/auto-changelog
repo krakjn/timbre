@@ -3,8 +3,6 @@
   "hideCredit": true,
   "breakingPattern": "BREAKING CHANGE:",
   "issueUrl": "https://github.com/krakjn/timbre/issues/{id}",
-  "commitPattern": "^(feat|fix|perf|refactor)",
-  "ignoreCommitPattern": "^(chore|docs|style|test|ci):",
   "sortCommits": "date",
   "hideEmptyReleases": true
 }
