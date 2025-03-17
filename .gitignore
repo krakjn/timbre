@@ -1,8 +1,16 @@
 /.timbre
 /build
 
+# generated
+/inc/timbre/version.h
+
 # commitlint 
 /.githooks
 /node_modules
 /package-lock.json
 /package.json
+
+
+# zig
+/zig-out/
+/.zig-cache/

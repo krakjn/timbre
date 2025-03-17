@@ -10,45 +10,58 @@ PREFIX ?= /usr/local/bin
 NPROC := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
 
 # Build directories with precise architecture names
-BUILD_X86_64 = build/x86_64
-BUILD_ARM64 = build/arm64
+BUILD_X86_64 = zig-out/x86_64
+BUILD_ARM64 = zig-out/arm64
+
+# Map build types to Zig optimization levels
+ifeq ($(BUILD_TYPE),Debug)
+    ZIG_OPT := Debug
+else ifeq ($(BUILD_TYPE),Release)
+    ZIG_OPT := ReleaseFast
+else ifeq ($(BUILD_TYPE),RelWithDebInfo)
+    ZIG_OPT := ReleaseSafe
+endif
 
 # Default target is x86_64, as most users will be on Intel/AMD
 .PHONY: default
 default: x86_64 
 
 $(BUILD_X86_64):
-	@cmake -S . -B $(BUILD_X86_64) -G "Ninja Multi-Config" \
-		-DCMAKE_TOOLCHAIN_FILE=cmake/toolchain_x86_64.cmake \
-		-DCMAKE_CONFIGURATION_TYPES="Debug;Release;RelWithDebInfo"
+	@mkdir -p $(BUILD_X86_64)
 
 $(BUILD_ARM64):
-	@cmake -S . -B $(BUILD_ARM64) -G "Ninja Multi-Config" \
-		-DCMAKE_TOOLCHAIN_FILE=cmake/toolchain_arm64.cmake \
-		-DCMAKE_CONFIGURATION_TYPES="Debug;Release;RelWithDebInfo"
+	@mkdir -p $(BUILD_ARM64)
 
 .PHONY: x86_64
 x86_64: $(BUILD_X86_64)
-	@cmake --build $(BUILD_X86_64) --config $(BUILD_TYPE) -j$(NPROC)
+	@zig build \
+		-Dtarget=x86_64-linux-gnu \
+		-Doptimize=$(ZIG_OPT) \
+		--prefix $(BUILD_X86_64) \
+		-j$(NPROC)
 
 .PHONY: arm64
 arm64: $(BUILD_ARM64)
-	@cmake --build $(BUILD_ARM64) --config $(BUILD_TYPE) -j$(NPROC)
+	@zig build \
+		-Dtarget=aarch64-linux-gnu \
+		-Doptimize=$(ZIG_OPT) \
+		--prefix $(BUILD_ARM64) \
+		-j$(NPROC)
 
 .PHONY: all
 all: x86_64 arm64
 
 .PHONY: clean
 clean:
-	@rm -rf $(BUILD_X86_64) $(BUILD_ARM64)
+	@rm -rf zig-out zig-cache
 
 .PHONY: deb-x86_64
 deb-x86_64: x86_64
-	@cd $(BUILD_X86_64) && cmake --build . --config $(BUILD_TYPE) --target package
+	@scripts/package.sh x86_64 $(BUILD_X86_64) $(BUILD_TYPE)
 
 .PHONY: deb-arm64
 deb-arm64: arm64
-	@cd $(BUILD_ARM64) && cmake --build . --config $(BUILD_TYPE) --target package
+	@scripts/package.sh arm64 $(BUILD_ARM64) $(BUILD_TYPE)
 
 .PHONY: deb
 deb: deb-x86_64 deb-arm64
@@ -64,29 +77,41 @@ enter:
 .PHONY: install-x86_64
 install-x86_64: x86_64
 	@echo "Installing $(BUILD_TYPE) configuration to $(PREFIX)..."
-	@cmake --install $(BUILD_X86_64) --config $(BUILD_TYPE)
+	@zig build install \
+		-Dtarget=x86_64-linux-gnu \
+		-Doptimize=$(ZIG_OPT) \
+		--prefix $(PREFIX)
 
 .PHONY: install-arm64
 install-arm64: arm64
 	@echo "Installing $(BUILD_TYPE) configuration for arm64..."
-	@cmake --install $(BUILD_ARM64) --config $(BUILD_TYPE)
+	@zig build install \
+		-Dtarget=aarch64-linux-gnu \
+		-Doptimize=$(ZIG_OPT) \
+		--prefix $(PREFIX)
 
 .PHONY: uninstall
 uninstall:
-	@if [ -f "$(BUILD_X86_64)/install_manifest_$(BUILD_TYPE).txt" ]; then \
-		xargs rm -f < "$(BUILD_X86_64)/install_manifest_$(BUILD_TYPE).txt"; \
+	@if [ -f "$(PREFIX)/bin/timbre" ]; then \
+		rm -f "$(PREFIX)/bin/timbre"; \
+		echo "Uninstalled timbre from $(PREFIX)/bin"; \
 	else \
-		echo "No install manifest found for $(BUILD_TYPE). Cannot uninstall automatically."; \
+		echo "timbre not found in $(PREFIX)/bin"; \
 		exit 1; \
 	fi
 
 .PHONY: test-x86_64
 test-x86_64: x86_64
-	@cd $(BUILD_X86_64) && ctest --output-on-failure -C $(BUILD_TYPE)
+	@zig build test \
+		-Dtarget=x86_64-linux-gnu \
+		-Doptimize=$(ZIG_OPT)
 
 .PHONY: test-arm64
 test-arm64: arm64
-	@echo "Skipping arm tests on non-arm platform"
+	@echo "Note: Running ARM64 tests on non-ARM platform may require emulation"
+	@zig build test \
+		-Dtarget=aarch64-linux-gnu \
+		-Doptimize=$(ZIG_OPT)
 
 .PHONY: test
 test: test-x86_64 test-arm64
@@ -98,7 +123,7 @@ docker-build:
 
 .PHONY: help
 help:
-	@echo "Makefile for timbre project (Ninja Multi-Config Build System)"
+	@echo "Makefile for timbre project (Zig Build System)"
 	@echo ""
 	@echo "Targets:"
 	@echo "  <no-arg>         - Build for x86_64 with current BUILD_TYPE"
