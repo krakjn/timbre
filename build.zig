@@ -1,84 +1,40 @@
+//  ______   __     __    __     ______     ______     ______
+// /\__  _\ /\ \   /\ "-./  \   /\  == \   /\  == \   /\  ___\
+// \/_/\ \/ \ \ \  \ \ \-./\ \  \ \  __<   \ \  __<   \ \  __\
+//    \ \_\  \ \_\  \ \_\ \ \_\  \ \_____\  \ \_\ \_\  \ \_____\
+//     \/_/   \/_/   \/_/  \/_/   \/_____/   \/_/ /_/   \/_____/
+
 const std = @import("std");
-const fs = std.fs;
-const print = std.debug.print;
+const common = @import("zig/common.zig");
 
 pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{
-        .default_target = .{
-            .cpu_arch = .x86_64,
-            .os_tag = .linux,
-            .abi = .musl,
-        },
-    });
+    const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const prefix = b.option([]const u8, "prefix", "Installation prefix") orelse "out";
 
-    const version_contents = fs.cwd().readFileAlloc(b.allocator, "pkg/version.txt", 1024) catch {
-        print("Error: Could not read version.txt\n", .{});
-        return;
-    };
-    defer b.allocator.free(version_contents);
-
-    // Parse version
-    var it = std.mem.splitScalar(u8, version_contents, '.');
-    const major = it.next() orelse "0";
-    const minor = it.next() orelse "0";
-    const patch = it.next() orelse "0";
-
-    const current_branch = std.mem.trim(u8, b.run(&[_][]const u8{
-        "git",
-        "rev-parse",
-        "--abbrev-ref",
-        "HEAD",
-    }), "\n\r");
-    const is_dev = !std.mem.eql(u8, current_branch, "main");
-    const is_dev_str = if (is_dev) "1" else "0";
-    const git_sha = std.mem.trim(u8, b.run(&[_][]const u8{
-        "git",
-        "rev-parse",
-        "--short=8",
-        "HEAD",
-    }), "\n\r");
-
-    const version_h_content = b.fmt(
-        \\#pragma once
-        \\
-        \\#define TIMBRE_VERSION_MAJOR {s}
-        \\#define TIMBRE_VERSION_MINOR {s}
-        \\#define TIMBRE_VERSION_PATCH {s}
-        \\#define TIMBRE_VERSION_SHA "{s}"
-        \\#define TIMBRE_IS_DEV {s}
-        \\
-    , .{ major, minor, patch, git_sha, is_dev_str });
-
-    fs.cwd().makePath("inc/timbre") catch {
-        print("Error: Could not create inc/timbre directory\n", .{});
+    // Get build configuration based on target
+    const target_triple = target.result.zigTriple(b.allocator) catch |err| {
+        std.debug.print("Error getting target triple: {}\n", .{err});
         return;
     };
 
-    // Generate version.h
-    fs.cwd().writeFile(.{
-        .sub_path = "inc/timbre/version.h",
-        .data = version_h_content,
-    }) catch {
-        print("Error: Could not write version.h\n", .{});
-        return;
-    };
+    const config = common.getBuildConfig(target_triple, optimize, prefix);
 
+    // Create the executable
     const exe = b.addExecutable(.{
         .name = "timbre",
         .target = target,
-        .optimize = optimize,
+        .optimize = config.optimize,
     });
 
-    // Add C source files with new API
     exe.addCSourceFiles(.{
         .files = &.{
             "src/main.cpp",
-            "src/log.cpp",
             "src/timbre.cpp",
             "src/config.cpp",
+            "src/log.cpp",
         },
-        .flags = &[_][]const u8{
+        .flags = &.{
             "-std=c++17",
             "-Wall",
             "-Wextra",
@@ -90,19 +46,41 @@ pub fn build(b: *std.Build) void {
     exe.addIncludePath(.{ .cwd_relative = "inc" });
     exe.linkLibCpp();
 
-    if (optimize == .ReleaseFast) {
+    b.installArtifact(exe);
+
+    if (config.optimize == .ReleaseFast) {
         exe.addCSourceFiles(.{
             .files = &.{},
-            .flags = &[_][]const u8{
+            .flags = &.{
                 "-O3",
                 "-DNDEBUG",
                 "-flto",
                 "-ffat-lto-objects",
                 "-flto-partition=one",
+                "-fno-rtti",
                 "-funroll-loops",
+                // "-march=native",
+                // "-mtune=native",
             },
         });
     }
 
-    b.installArtifact(exe);
+    const run_cmd = b.addRunArtifact(exe);
+    run_cmd.step.dependOn(b.getInstallStep());
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run_cmd.step);
+
+    // Create a "test" step
+    const unit_tests = b.addTest(.{
+        .root_source_file = .{ .cwd_relative = "tests/test_timbre.cpp" },
+        .target = target,
+        .optimize = config.optimize,
+    });
+
+    const run_unit_tests = b.addRunArtifact(unit_tests);
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_unit_tests.step);
 }
