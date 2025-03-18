@@ -10,15 +10,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const targets = [_][]const u8{
-        "aarch64-macos-none",
-        "x86_64-macos-none",
-        "aarch64-linux-musl",
-        "x86_64-linux-musl",
-        "aarch64-windows-gnu",
-        "x86_64-windows-gnu",
-    };
-
+    // Create the native build (default)
     const exe = b.addExecutable(.{
         .name = "timbre",
         .target = target,
@@ -37,43 +29,10 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const all_step = b.step("all", "Build for all targets");
-
-    // Create builds for each target
-    for (targets) |triple| {
-        std.debug.print("Building target: {s}\n", .{triple});
-
-        const target_query = std.Target.Query.parse(.{
-            .arch_os_abi = triple,
-        }) catch |err| {
-            std.debug.print("Error parsing target triple '{s}': {}\n", .{ triple, err });
-            return;
-        };
-        const resolved_target = b.resolveTargetQuery(target_query);
-
-        const target_exe = b.addExecutable(.{
-            .name = "timbre",
-            .target = resolved_target,
-            .optimize = optimize,
-        });
-
-        addSources(target_exe, optimize);
-
-        // Create install step with target-specific output directory
-        const target_install = b.addInstallArtifact(target_exe, .{});
-        target_install.dest_dir = .{ .custom = triple };
-
-        // Add a step for building this specific target
-        const target_step = b.step(triple, b.fmt("Build for {s}", .{triple}));
-        target_step.dependOn(&target_install.step);
-
-        // Add THIS target's install to the "all" step
-        all_step.dependOn(&target_install.step);
-    }
+    addCrossTargets(b, optimize);
 }
 
 fn addSources(exe: *std.Build.Step.Compile, optimize: std.builtin.Mode) void {
-    // Add C++ source files
     exe.addCSourceFiles(.{
         .files = &.{
             "src/main.cpp",
@@ -160,4 +119,46 @@ pub fn generateVersionFile(b: *std.Build) void {
         std.debug.print("Error: Could not write version.h\n", .{});
         return;
     };
+}
+
+fn addCrossTargets(b: *std.Build, optimize: std.builtin.Mode) void {
+    const targets = [_][]const u8{
+        "aarch64-macos-none",
+        "x86_64-macos-none",
+        "aarch64-linux-musl",
+        "x86_64-linux-musl",
+        "aarch64-windows-gnu",
+        "x86_64-windows-gnu",
+    };
+
+    const all_step = b.step("all", "Build for all targets");
+
+    // Create individual target steps
+    for (targets) |triple| {
+        const target_query = std.Target.Query.parse(.{
+            .arch_os_abi = triple,
+        }) catch |err| {
+            std.debug.print("Error parsing target triple '{s}': {}\n", .{ triple, err });
+            continue;
+        };
+        const resolved_target = b.resolveTargetQuery(target_query);
+
+        const target_exe = b.addExecutable(.{
+            .name = "timbre",
+            .target = resolved_target,
+            .optimize = optimize,
+        });
+
+        addSources(target_exe, optimize);
+
+        const target_install = b.addInstallArtifact(target_exe, .{});
+        target_install.dest_dir = .{ .custom = b.pathJoin(&.{ "out", triple }) };
+
+        // Add a step for building this specific target
+        const target_step = b.step(triple, b.fmt("Build for {s}", .{triple}));
+        target_step.dependOn(&target_install.step);
+
+        // Add this target to the "all" step
+        all_step.dependOn(&target_install.step);
+    }
 }
