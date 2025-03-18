@@ -5,28 +5,75 @@
 //     \/_/   \/_/   \/_/  \/_/   \/_____/   \/_/ /_/   \/_____/
 
 const std = @import("std");
-const common = @import("zig/common.zig");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-    const prefix = b.option([]const u8, "prefix", "Installation prefix") orelse "out";
 
-    // Get build configuration based on target
-    const target_triple = target.result.zigTriple(b.allocator) catch |err| {
-        std.debug.print("Error getting target triple: {}\n", .{err});
-        return;
+    const targets = [_][]const u8{
+        "aarch64-macos-none",
+        "x86_64-macos-none",
+        "aarch64-linux-musl",
+        "x86_64-linux-musl",
+        "aarch64-windows-gnu",
+        "x86_64-windows-gnu",
     };
 
-    const config = common.getBuildConfig(target_triple, optimize, prefix);
-
-    // Create the executable
     const exe = b.addExecutable(.{
         .name = "timbre",
         .target = target,
-        .optimize = config.optimize,
+        .optimize = optimize,
     });
 
+    generateVersionFile(b);
+    addSources(exe, optimize);
+    b.installArtifact(exe);
+
+    // Add run step for native build
+    const run_cmd = b.addRunArtifact(exe);
+    if (b.args) |args| {
+        run_cmd.addArgs(args);
+    }
+    const run_step = b.step("run", "Run the app");
+    run_step.dependOn(&run_cmd.step);
+
+    const all_step = b.step("all", "Build for all targets");
+
+    // Create builds for each target
+    for (targets) |triple| {
+        std.debug.print("Building target: {s}\n", .{triple});
+
+        const target_query = std.Target.Query.parse(.{
+            .arch_os_abi = triple,
+        }) catch |err| {
+            std.debug.print("Error parsing target triple '{s}': {}\n", .{ triple, err });
+            return;
+        };
+        const resolved_target = b.resolveTargetQuery(target_query);
+
+        const target_exe = b.addExecutable(.{
+            .name = "timbre",
+            .target = resolved_target,
+            .optimize = optimize,
+        });
+
+        addSources(target_exe, optimize);
+
+        // Create install step with target-specific output directory
+        const target_install = b.addInstallArtifact(target_exe, .{});
+        target_install.dest_dir = .{ .custom = triple };
+
+        // Add a step for building this specific target
+        const target_step = b.step(triple, b.fmt("Build for {s}", .{triple}));
+        target_step.dependOn(&target_install.step);
+
+        // Add THIS target's install to the "all" step
+        all_step.dependOn(&target_install.step);
+    }
+}
+
+fn addSources(exe: *std.Build.Step.Compile, optimize: std.builtin.Mode) void {
+    // Add C++ source files
     exe.addCSourceFiles(.{
         .files = &.{
             "src/main.cpp",
@@ -46,9 +93,8 @@ pub fn build(b: *std.Build) void {
     exe.addIncludePath(.{ .cwd_relative = "inc" });
     exe.linkLibCpp();
 
-    b.installArtifact(exe);
-
-    if (config.optimize == .ReleaseFast) {
+    // Add release-specific flags if in release mode
+    if (optimize == .ReleaseFast) {
         exe.addCSourceFiles(.{
             .files = &.{},
             .flags = &.{
@@ -59,28 +105,59 @@ pub fn build(b: *std.Build) void {
                 "-flto-partition=one",
                 "-fno-rtti",
                 "-funroll-loops",
-                // "-march=native",
-                // "-mtune=native",
             },
         });
     }
+}
 
-    const run_cmd = b.addRunArtifact(exe);
-    run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
-    const run_step = b.step("run", "Run the app");
-    run_step.dependOn(&run_cmd.step);
+pub fn generateVersionFile(b: *std.Build) void {
+    const version_contents = std.fs.cwd().readFileAlloc(b.allocator, "pkg/version.txt", 1024) catch {
+        std.debug.print("Error: Could not read version.txt\n", .{});
+        return;
+    };
+    defer b.allocator.free(version_contents);
 
-    // Create a "test" step
-    const unit_tests = b.addTest(.{
-        .root_source_file = .{ .cwd_relative = "tests/test_timbre.cpp" },
-        .target = target,
-        .optimize = config.optimize,
-    });
+    var it = std.mem.splitScalar(u8, version_contents, '.');
+    const major = it.next() orelse "0";
+    const minor = it.next() orelse "0";
+    const patch = it.next() orelse "0";
 
-    const run_unit_tests = b.addRunArtifact(unit_tests);
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_unit_tests.step);
+    const current_branch = std.mem.trim(u8, b.run(&[_][]const u8{
+        "git",
+        "rev-parse",
+        "--abbrev-ref",
+        "HEAD",
+    }), "\n\r");
+    const is_dev = !std.mem.eql(u8, current_branch, "main");
+    const is_dev_str = if (is_dev) "1" else "0";
+    const git_sha = std.mem.trim(u8, b.run(&[_][]const u8{
+        "git",
+        "rev-parse",
+        "--short=8",
+        "HEAD",
+    }), "\n\r");
+
+    const version_h_content = b.fmt(
+        \\#pragma once
+        \\
+        \\#define TIMBRE_VERSION_MAJOR {s}
+        \\#define TIMBRE_VERSION_MINOR {s}
+        \\#define TIMBRE_VERSION_PATCH {s}
+        \\#define TIMBRE_VERSION_SHA "{s}"
+        \\#define TIMBRE_IS_DEV {s}
+        \\
+    , .{ major, minor, patch, git_sha, is_dev_str });
+
+    std.fs.cwd().makePath("inc/timbre") catch {
+        std.debug.print("Error: Could not create inc/timbre directory\n", .{});
+        return;
+    };
+
+    std.fs.cwd().writeFile(.{
+        .sub_path = "inc/timbre/version.h",
+        .data = version_h_content,
+    }) catch {
+        std.debug.print("Error: Could not write version.h\n", .{});
+        return;
+    };
 }

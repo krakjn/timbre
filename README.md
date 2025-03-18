@@ -77,49 +77,101 @@ error = "error|exception|fail"
 
 ### Prerequisites
 
-- CMake 3.14 or higher
-- Ninja build system
-- C++17 compatible compiler
-- Catch2 (for tests, optional)
+- Zig 0.14.0 or later
+- A C++17 compatible compiler
+
+### Build Instructions
+
+Timbre uses Zig's build system for cross-compilation to various platforms. The build system automatically detects your platform and builds the appropriate version by default.
+
+```bash
+# Build for your current platform (debug)
+zig build
+
+# Build with release optimizations
+zig build -Doptimize=ReleaseFast
+
+# Run the application
+zig build run
+```
+
+### Cross-Compilation Targets
+
+Timbre supports building for multiple platforms:
+
+```bash
+# Build for specific platforms
+zig build macos-arm64    # macOS ARM64 (Apple Silicon)
+zig build macos-x86_64   # macOS Intel
+zig build linux-arm64    # Linux ARM64 (musl)
+zig build linux-x86_64   # Linux x86_64 (musl)
+zig build windows-arm64  # Windows ARM64 (GNU)
+zig build windows-x86_64 # Windows x86_64 (GNU)
+
+# Build for all targets of a platform
+zig build macos    # All macOS targets
+zig build linux    # All Linux targets
+zig build windows  # All Windows targets
+
+# Build for all platforms
+zig build all
+```
+
+### Build Output
+
+Built binaries are placed in the `out` directory, organized by target triple:
+
+```
+out/
+  aarch64-macos/      # macOS ARM64
+  x86_64-macos/       # macOS Intel
+  aarch64-linux-musl/ # Linux ARM64
+  x86_64-linux-musl/  # Linux x86_64
+  aarch64-windows-gnu/ # Windows ARM64
+  x86_64-windows-gnu/  # Windows x86_64
+```
+
+### Testing
+
+Tests can be run for any target platform:
+
+```bash
+# Run tests for specific platform
+zig build test-macos-arm64
+zig build test-linux-x86_64
+zig build test-windows-x86_64
+
+# Run tests for all platforms
+zig build test-macos
+zig build test-linux
+zig build test-windows
+```
 
 ### Build Options
 
-```bash
-# Clone repository
-git clone https://github.com/krakjn/timbre.git
-cd timbre
+- `-Doptimize=[Debug|ReleaseSafe|ReleaseFast|ReleaseSmall]`: Set optimization level
+- `-Dprefix=[path]`: Set custom output directory (default: "out")
+- `-Dtarget=[triple]`: Override target platform
 
-# Build Targets
-make                        # Build x86_64 Debug build (default)
-make BUILD_TYPE=Release     # Build x86_64 Release build
-make arm64                  # Build ARM64 Debug build
-make all                    # Build both x86_64 and ARM64
+## Project Structure
 
-# Package Creation
-make deb                    # Create Debian packages for both architectures
-make deb-x86_64             # Create x86_64 Debian package only
-make deb-arm64              # Create ARM64 Debian package only
-
-# Testing
-make test                   # Run all tests
-make test-x86_64            # Run x86_64 tests only
-
-# Installation
-sudo make install-x86_64    # Install x86_64 build
-sudo make install-arm64     # Install ARM64 build
-sudo make uninstall         # Uninstall current build
-
-# Development Container
-make enter                  # Enter development container
-make docker-build           # Build development container
+```
+.
+├── src/           # Source files
+│   ├── main.cpp   # Main entry point
+│   ├── timbre.cpp # Core audio processing
+│   ├── config.cpp # Configuration handling
+│   └── log.cpp    # Logging utilities
+├── inc/           # Header files
+├── tests/         # Test files
+├── zig/          # Zig build configuration
+│   └── common.zig # Common build settings
+└── build.zig     # Build system definition
 ```
 
-### Build Types
+## Contributing
 
-- `Debug`: Default build with debug symbols and no optimizations
-- `Release`: Optimized build with LTO and architecture-specific optimizations
-- `RelWithDebInfo`: Release build with debug symbols
-
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## LICENSE
 
