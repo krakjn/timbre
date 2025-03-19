@@ -32,24 +32,19 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    // Add packaging step for Debian package
     addDebianPackaging(b, exe, target);
 
-    // Add tests
     const test_step = b.step("test", "Run tests");
 
-    // Zig tests - now using our C interface in the tests directory
     const zig_tests = b.addTest(.{
         .root_source_file = b.path("tests/test.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    // Add source files needed for the test
     zig_tests.addIncludePath(.{ .cwd_relative = "tests" }); // Add tests directory to include path
     zig_tests.addIncludePath(.{ .cwd_relative = "inc" }); // Still need the main include directory
 
-    // Add C++ source files
     zig_tests.addCSourceFiles(.{
         .files = &.{
             "src/timbre.cpp",
@@ -62,7 +57,6 @@ pub fn build(b: *std.Build) void {
         },
     });
 
-    // Add C source files with C-specific flags
     zig_tests.addCSourceFiles(.{
         .files = &.{
             "tests/interface.c",
@@ -78,12 +72,10 @@ pub fn build(b: *std.Build) void {
     const run_zig_tests = b.addRunArtifact(zig_tests);
     test_step.dependOn(&run_zig_tests.step);
 
-    // Add cross-compilation targets with better descriptions
     addCrossTargets(b, optimize);
 }
 
 fn addSources(exe: *std.Build.Step.Compile, optimize: std.builtin.Mode, enable_clang_tidy: bool, enable_cppcheck: bool) void {
-    // Define standard flags for C++ sources
     var flags = std.ArrayList([]const u8).init(exe.step.owner.allocator);
     defer flags.deinit();
 
@@ -107,23 +99,35 @@ fn addSources(exe: *std.Build.Step.Compile, optimize: std.builtin.Mode, enable_c
         }) catch unreachable;
     }
 
-    // Run static analysis tools if enabled
     if (enable_clang_tidy) {
-        // Run clang-tidy as a separate step before compilation
-        const clang_tidy = exe.step.owner.addSystemCommand(&.{ "clang-tidy", "src/main.cpp", "src/timbre.cpp", "src/config.cpp", "src/log.cpp", "--", "-I./inc", "-std=c++17" });
-
-        // Configure specific checks like in static_analysis.cmake
+        const clang_tidy = exe.step.owner.addSystemCommand(&.{
+            "clang-tidy",
+            "src/main.cpp",
+            "src/timbre.cpp",
+            "src/config.cpp",
+            "src/log.cpp",
+            "--",
+            "-I./inc",
+            "-std=c++17",
+        });
         clang_tidy.addArg("-checks=-*,clang-analyzer-*,portability-*");
-
-        // Make compilation depend on clang-tidy
         exe.step.dependOn(&clang_tidy.step);
     }
 
     if (enable_cppcheck) {
-        // Run cppcheck as a separate step
-        const cppcheck = exe.step.owner.addSystemCommand(&.{ "cppcheck", "--suppress=toomanyconfigs", "-I", "./inc/timbre", "--suppress=*:./inc/toml/*", "--suppress=*:./inc/CLI/*", "--suppress=*:./tests/*", "src/main.cpp", "src/timbre.cpp", "src/config.cpp", "src/log.cpp" });
-
-        // Make compilation depend on cppcheck
+        const cppcheck = exe.step.owner.addSystemCommand(&.{
+            "cppcheck",
+            "--suppress=toomanyconfigs",
+            "-I",
+            "./inc/timbre",
+            "--suppress=*:./inc/toml/*",
+            "--suppress=*:./inc/CLI/*",
+            "--suppress=*:./tests/*",
+            "src/main.cpp",
+            "src/timbre.cpp",
+            "src/config.cpp",
+            "src/log.cpp",
+        });
         exe.step.dependOn(&cppcheck.step);
     }
 
@@ -144,10 +148,7 @@ fn addSources(exe: *std.Build.Step.Compile, optimize: std.builtin.Mode, enable_c
 fn addDebianPackaging(b: *std.Build, exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget) void {
     const package_step = b.step("package", "Create a Debian package (.deb) for distribution");
 
-    // Get version information
     const version = getVersionString(b);
-
-    // Determine architecture (following the mapping in debian.cmake)
     const arch = @tagName(target.result.cpu.arch);
     const deb_arch = blk: {
         if (std.mem.eql(u8, arch, "aarch64")) {
@@ -159,7 +160,6 @@ fn addDebianPackaging(b: *std.Build, exe: *std.Build.Step.Compile, target: std.B
         }
     };
 
-    // Create directory structure for the package
     const pkg_dir = b.fmt("build/pkg-{s}", .{deb_arch});
     const mkdir_cmd = b.addSystemCommand(&.{ "mkdir", "-p" });
     mkdir_cmd.addArgs(&.{
@@ -168,7 +168,6 @@ fn addDebianPackaging(b: *std.Build, exe: *std.Build.Step.Compile, target: std.B
         b.fmt("{s}/usr/share/doc/timbre", .{pkg_dir}),
     });
 
-    // Create control file
     const control_content = b.fmt(
         \\Package: {s}
         \\Version: {s}
@@ -196,14 +195,11 @@ fn addDebianPackaging(b: *std.Build, exe: *std.Build.Step.Compile, target: std.B
 
     const write_control = b.addWriteFile(b.fmt("{s}/DEBIAN/control", .{pkg_dir}), control_content);
 
-    // Make sure the executable is built and installed
     const installed_exe = b.addInstallArtifact(exe, .{});
 
-    // Copy the executable to the package directory
     const copy_exe = b.addSystemCommand(&.{ "cp", b.getInstallPath(.bin, "timbre"), b.fmt("{s}/usr/bin/", .{pkg_dir}) });
     copy_exe.step.dependOn(&installed_exe.step);
 
-    // Create the actual debian package
     const dpkg_cmd = b.addSystemCommand(&.{
         "dpkg-deb",
         "--build",
@@ -212,12 +208,10 @@ fn addDebianPackaging(b: *std.Build, exe: *std.Build.Step.Compile, target: std.B
         b.fmt("build/timbre-{s}-{s}.deb", .{ version, deb_arch }),
     });
 
-    // Set up dependencies
     dpkg_cmd.step.dependOn(&write_control.step);
     dpkg_cmd.step.dependOn(&mkdir_cmd.step);
     dpkg_cmd.step.dependOn(&copy_exe.step);
 
-    // Make the package step depend on all the previous steps
     package_step.dependOn(&dpkg_cmd.step);
 }
 
