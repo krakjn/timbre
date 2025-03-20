@@ -5,7 +5,8 @@ on:
     branches: [ '**' ]
 
 jobs:
-  commitlint:
+  lint_build_test:
+    name: Lint, Build, and Test
     runs-on: ubuntu-latest # Host runner
     container:
       image: ghcr.io/krakjn/timbre
