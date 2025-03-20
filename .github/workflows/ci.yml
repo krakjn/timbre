@@ -28,36 +28,8 @@ jobs:
         run: |
           commitlint --config cfg/commitlintrc.json --last --verbose
 
-
-  build:
-    needs: [commitlint]
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/krakjn/timbre
-      credentials:
-        username: krakjn
-        password: ${{ secrets.TIMBRE_TOKEN }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Git
-        run: |
-          # Prevent ownership errors in container environments
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'github-actions@github.com'
-          
-          # Ensure we can push changes
-          git remote -v || true
-          if ! git remote -v | grep -q origin; then
-            git remote add origin "https://x-access-token:${{ secrets.TIMBRE_TOKEN }}@github.com/krakjn/timbre.git"
-          fi
-      
       - name: Build
         run: zig build all
       
       - name: Test
         run: zig build test
-

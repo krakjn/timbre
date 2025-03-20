@@ -7,6 +7,15 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const targets: []const std.Target.Query = &.{
+    .{ .cpu_arch = .aarch64, .os_tag = .macos },
+    .{ .cpu_arch = .x86_64, .os_tag = .macos },
+    .{ .cpu_arch = .aarch64, .os_tag = .linux, .abi = .musl },
+    .{ .cpu_arch = .x86_64, .os_tag = .linux, .abi = .musl },
+    .{ .cpu_arch = .aarch64, .os_tag = .windows },
+    .{ .cpu_arch = .x86_64, .os_tag = .windows },
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -20,8 +29,13 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    generateVersionFile(b);
-    addSources(exe, optimize, enable_clang_tidy, enable_cppcheck);
+    const version = generateVersionFile(b);
+    addSources(
+        exe,
+        enable_clang_tidy,
+        enable_cppcheck,
+        getFlags(.cpp, optimize, target.result.os.tag, target.result.cpu.arch),
+    );
     b.installArtifact(exe);
 
     // Add run step for native build
@@ -32,11 +46,48 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    // Add cross-compilation targets
-    const target_steps = addCrossTargets(b, optimize);
+    const all_step = b.step("all", "Build all cross-compilation targets");
+    var target_steps = std.StringHashMap(*std.Build.Step).init(b.allocator);
+
+    for (targets) |t| {
+        const resolved_target = b.resolveTargetQuery(t);
+        const triple = t.zigTriple(b.allocator) catch {
+            std.debug.print("Error getting triple for target\n", .{});
+            continue;
+        };
+
+        const target_exe = b.addExecutable(.{
+            .name = "timbre",
+            .target = resolved_target,
+            .optimize = optimize,
+        });
+
+        const flags = getFlags(.cpp, optimize, resolved_target.result.os.tag, resolved_target.result.cpu.arch);
+        addSources(target_exe, false, false, flags);
+
+        const target_install = b.addInstallArtifact(target_exe, .{
+            .dest_dir = .{
+                .override = .{
+                    .custom = triple,
+                },
+            },
+        });
+
+        // Add a step for building this specific target
+        const target_step = b.step(triple, b.fmt("Build for {s}", .{triple}));
+        target_step.dependOn(&target_install.step);
+
+        // Store the step in the hash map
+        target_steps.put(triple, target_step) catch {
+            std.debug.print("Error storing step for triple '{s}'\n", .{triple});
+        };
+
+        // Add this target to the "all" step
+        all_step.dependOn(&target_install.step);
+    }
 
     // Add packaging step that depends on cross-compilation
-    addDebianPackaging(b, target_steps);
+    addDebianPackaging(b, target_steps, version);
 
     const test_step = b.step("test", "Run tests");
 
@@ -55,20 +106,14 @@ pub fn build(b: *std.Build) void {
             "src/config.cpp",
             "src/log.cpp",
         },
-        .flags = &.{
-            "-std=c++17",
-            "-fPIC",
-        },
+        .flags = getFlags(.cpp, optimize, target.result.os.tag, target.result.cpu.arch),
     });
 
     zig_tests.addCSourceFiles(.{
         .files = &.{
             "tests/interface.c",
         },
-        .flags = &.{
-            "-std=c11",
-            "-fPIC",
-        },
+        .flags = getFlags(.c, optimize, target.result.os.tag, target.result.cpu.arch),
     });
 
     zig_tests.linkLibCpp();
@@ -77,29 +122,78 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_zig_tests.step);
 }
 
-fn addSources(exe: *std.Build.Step.Compile, optimize: std.builtin.Mode, enable_clang_tidy: bool, enable_cppcheck: bool) void {
-    var flags = std.ArrayList([]const u8).init(exe.step.owner.allocator);
+const Language = enum {
+    c,
+    cpp,
+};
+
+fn getFlags(lang: Language, optimize: std.builtin.Mode, os_tag: std.Target.Os.Tag, arch: std.Target.Cpu.Arch) []const []const u8 {
+    var flags = std.ArrayList([]const u8).init(std.heap.page_allocator);
     defer flags.deinit();
 
     flags.appendSlice(&.{
-        "-std=c++17",
         "-Wall",
         "-Wextra",
         "-Werror",
         "-pedantic",
+        "-fPIC",
     }) catch unreachable;
+
+    switch (lang) {
+        .c => flags.appendSlice(&.{
+            "-std=c11",
+        }) catch unreachable,
+        .cpp => flags.appendSlice(&.{
+            "-std=c++17",
+        }) catch unreachable,
+    }
 
     if (optimize == .ReleaseFast) {
         flags.appendSlice(&.{
-            "-O3",
             "-DNDEBUG",
-            "-flto",
+            "-O3",
             "-ffat-lto-objects",
+            "-flto",
             "-flto-partition=one",
             "-fno-rtti",
             "-funroll-loops",
         }) catch unreachable;
     }
+
+    if (os_tag == .windows) {
+        flags.appendSlice(&.{
+            "-D_WIN32",
+            "-DWIN32_LEAN_AND_MEAN",
+        }) catch unreachable;
+    } else if (os_tag == .macos) {
+        flags.appendSlice(&.{
+            "-D_DARWIN_C_SOURCE",
+        }) catch unreachable;
+    } else if (os_tag == .linux) {
+        flags.appendSlice(&.{
+            "-D_GNU_SOURCE",
+        }) catch unreachable;
+    }
+
+    if (arch == .x86_64) {
+        flags.appendSlice(&.{
+            "-march=x86-64",
+            "-mtune=generic",
+        }) catch unreachable;
+    } else if (arch == .aarch64) {
+        flags.appendSlice(&.{
+            "-march=armv8-a",
+        }) catch unreachable;
+    }
+
+    return flags.toOwnedSlice() catch unreachable;
+}
+
+fn addSources(exe: *std.Build.Step.Compile, enable_clang_tidy: bool, enable_cppcheck: bool, platform_flags: []const []const u8) void {
+    var flags = std.ArrayList([]const u8).init(exe.step.owner.allocator);
+    defer flags.deinit();
+
+    flags.appendSlice(platform_flags) catch unreachable;
 
     if (enable_clang_tidy) {
         const clang_tidy = exe.step.owner.addSystemCommand(&.{
@@ -147,10 +241,10 @@ fn addSources(exe: *std.Build.Step.Compile, optimize: std.builtin.Mode, enable_c
     exe.linkLibCpp();
 }
 
-fn addDebianPackaging(b: *std.Build, target_steps: std.StringHashMap(*std.Build.Step)) void {
+fn addDebianPackaging(b: *std.Build, target_steps: std.StringHashMap(*std.Build.Step), version: []const u8) void {
     const package_step = b.step("package", "Create a Debian package (.deb) for distribution");
 
-    const mkdir_cmd = b.addSystemCommand(&.{ "mkdir", "-p", "out/pkg" });
+    const mkdir_cmd = b.addSystemCommand(&.{ "mkdir", "-p", "zig-out/pkg" });
 
     // NOTE: this is to ensure the cross-compilation targets are built first
     const amd64_step = target_steps.get("x86_64-linux-musl") orelse {
@@ -164,13 +258,13 @@ fn addDebianPackaging(b: *std.Build, target_steps: std.StringHashMap(*std.Build.
     };
 
     const amd64_pkg = b.addSystemCommand(&.{
-        "bash", "pkg/build_deb.sh", "amd64",
+        "bash", "pkg/build_deb.sh", "amd64", version,
     });
     amd64_pkg.step.dependOn(&mkdir_cmd.step);
     amd64_pkg.step.dependOn(amd64_step);
 
     const arm64_pkg = b.addSystemCommand(&.{
-        "bash", "pkg/build_deb.sh", "arm64",
+        "bash", "pkg/build_deb.sh", "arm64", version,
     });
     arm64_pkg.step.dependOn(&mkdir_cmd.step);
     arm64_pkg.step.dependOn(arm64_step);
@@ -179,10 +273,10 @@ fn addDebianPackaging(b: *std.Build, target_steps: std.StringHashMap(*std.Build.
     package_step.dependOn(&arm64_pkg.step);
 }
 
-pub fn generateVersionFile(b: *std.Build) void {
+pub fn generateVersionFile(b: *std.Build) []const u8 {
     const version_contents = std.fs.cwd().readFileAlloc(b.allocator, "pkg/version.txt", 1024) catch {
         std.debug.print("Error: Could not read version.txt\n", .{});
-        return;
+        return "0.0.0";
     };
     defer b.allocator.free(version_contents);
 
@@ -222,57 +316,12 @@ pub fn generateVersionFile(b: *std.Build) void {
         .data = version_h_content,
     }) catch {
         std.debug.print("Error: Could not write version.h\n", .{});
-        return;
-    };
-}
-
-fn addCrossTargets(b: *std.Build, optimize: std.builtin.Mode) std.StringHashMap(*std.Build.Step) {
-    const targets = [_][]const u8{
-        "aarch64-macos-none",
-        "x86_64-macos-none",
-        "aarch64-linux-musl",
-        "x86_64-linux-musl",
-        "aarch64-windows-gnu",
-        "x86_64-windows-gnu",
+        return "0.0.0";
     };
 
-    const all_step = b.step("all", "Build all cross-compilation targets (output to out/<triple>)");
-
-    var target_steps = std.StringHashMap(*std.Build.Step).init(b.allocator);
-
-    // Create individual target steps
-    for (targets) |triple| {
-        const target_query = std.Target.Query.parse(.{
-            .arch_os_abi = triple,
-        }) catch |err| {
-            std.debug.print("Error parsing target triple '{s}': {}\n", .{ triple, err });
-            continue;
-        };
-        const resolved_target = b.resolveTargetQuery(target_query);
-
-        const target_exe = b.addExecutable(.{
-            .name = "timbre",
-            .target = resolved_target,
-            .optimize = optimize,
-        });
-
-        addSources(target_exe, optimize, false, false);
-
-        const target_install = b.addInstallArtifact(target_exe, .{});
-        target_install.dest_dir = .{ .custom = b.pathJoin(&.{ "out", triple }) };
-
-        // Add a step for building this specific target
-        const target_step = b.step(triple, b.fmt("Build for {s}", .{triple}));
-        target_step.dependOn(&target_install.step);
-
-        // Store the step in the hash map
-        target_steps.put(triple, target_step) catch {
-            std.debug.print("Error storing step for triple '{s}'\n", .{triple});
-        };
-
-        // Add this target to the "all" step
-        all_step.dependOn(&target_install.step);
-    }
-
-    return target_steps;
+    return if (is_dev)
+        // NOTE: debpkg-deb does not like `_` or `-` in the version string
+        std.fmt.allocPrint(b.allocator, "{s}+{s}", .{ std.mem.trim(u8, version_contents, "\n\r"), git_sha }) catch unreachable
+    else
+        std.mem.trim(u8, version_contents, "\n\r");
 }

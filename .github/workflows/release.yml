@@ -222,7 +222,7 @@ jobs:
       # Build freshly bumped version
       - name: Build packages
         run: |
-          make deb BUILD_TYPE=Release
+          zig build package --release=fast
       
       - name: Install and verify package
         shell: bash

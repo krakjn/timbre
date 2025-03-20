@@ -1,16 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <architecture>"
-    echo "Example: $0 amd64"
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <architecture> <version>"
+    echo "Example: $0 amd64 1.0.0"
     exit 1
 fi
 
 ARCH="$1"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="$(tr -d '[:space:]' < "$SCRIPT_DIR/version.txt")"
-PKG_DIR="out/pkg/$ARCH"
+VERSION="$2"
+PKG_DIR="zig-out/pkg/$ARCH"
 
 echo "Building package for $ARCH with version $VERSION"
 
@@ -40,13 +39,12 @@ else
     exit 1
 fi
 
-if [ -f "out/$TRIPLE/bin/timbre" ]; then
-    cp "out/$TRIPLE/bin/timbre" "$PKG_DIR/usr/bin/"
+if [ -f "zig-out/$TRIPLE/timbre" ]; then
+    cp "zig-out/$TRIPLE/timbre" "$PKG_DIR/usr/bin/"
 else
     echo "Error: No binary found for $TRIPLE"
     exit 1
 fi
 
-chmod +x "$PKG_DIR/usr/bin/timbre"
-dpkg-deb --build --root-owner-group "$PKG_DIR" "out/pkg/timbre-${VERSION}-${ARCH}.deb"
-echo "Package created: out/pkg/timbre-${VERSION}-${ARCH}.deb" 
+dpkg-deb --build --root-owner-group "$PKG_DIR" "zig-out/pkg/timbre-${VERSION}-${ARCH}.deb"
+echo "Package created: zig-out/$TRIPLE/pkg/timbre-${VERSION}-${ARCH}.deb" 
