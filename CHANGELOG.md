@@ -2,12 +2,19 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+### [1.0.0](https://github.com/krakjn/timbre/compare/0.4.4...1.0.0)
+
+> 20 March 2025
+
+- Zig build system! [`#12`](https://github.com/krakjn/timbre/pull/12)
+
 #### [0.4.4](https://github.com/krakjn/timbre/compare/0.4.3...0.4.4)
 
 > 11 March 2025
 
-- doc: allow all commits [`#11`](https://github.com/krakjn/timbre/pull/11)
+- docs: allow all commits [`#11`](https://github.com/krakjn/timbre/pull/11)
 - chore: release 0.4.3 [`b921a4c`](https://github.com/krakjn/timbre/commit/b921a4cf1544a90bfbd9c46e8026615e73e1e055)
+- chore: release 0.4.4 [`8b16f22`](https://github.com/krakjn/timbre/commit/8b16f22319727a05bd0755587896e4cc23b10d5c)
 
 #### [0.4.3](https://github.com/krakjn/timbre/compare/0.4.2...0.4.3)
 
