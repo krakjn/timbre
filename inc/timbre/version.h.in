@@ -1,7 +1,0 @@
-#pragma once
-// The following variables are set by CMake
-#define TIMBRE_VERSION_MAJOR @VERSION_MAJOR@
-#define TIMBRE_VERSION_MINOR @VERSION_MINOR@
-#define TIMBRE_VERSION_PATCH @VERSION_PATCH@
-#define TIMBRE_VERSION_SHA "@VERSION_SHA@"
-#define TIMBRE_IS_DEV @IS_DEV@

@@ -28,22 +28,8 @@ jobs:
         run: |
           commitlint --config cfg/commitlintrc.json --last --verbose
 
-
-  build:
-    needs: [commitlint]
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/krakjn/timbre
-      credentials:
-        username: krakjn
-        password: ${{ secrets.TIMBRE_TOKEN }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Build
-        run: make all BUILD_TYPE=Release STATIC_ANALYSIS=ON
+      - name: Build with Analysis
+        run: zig build all -Dclang-tidy=true -Dcppcheck=true
       
       - name: Test
-        run: make test
-
+        run: zig build test

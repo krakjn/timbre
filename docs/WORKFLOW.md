@@ -68,4 +68,39 @@ graph LR
     B -->|Package| E[Debian Package]
     
     style B fill:#9cf,stroke:#333,stroke-width:2px
+```
+
+## Build Commands
+
+Common development commands:
+```bash
+# Build the project
+zig build
+
+# Run tests
+zig build test
+
+# Build with optimizations
+zig build -Doptimize=ReleaseFast
+
+# Build packages
+zig build package
+
+# Build specific target
+zig build x86_64-linux-musl
+```
+
+## Cross-Compilation
+
+Timbre supports cross-compilation for multiple targets:
+- x86_64-linux-musl
+- aarch64-linux-musl
+- x86_64-windows
+- aarch64-windows
+- x86_64-macos
+- aarch64-macos
+
+Use the target name as the build command to compile for a specific target:
+```bash
+zig build aarch64-linux-musl
 ``` 
