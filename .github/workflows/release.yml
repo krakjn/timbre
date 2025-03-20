@@ -228,14 +228,14 @@ jobs:
         shell: bash
         run: |
           # Verify AMD64 package
-          if ! dpkg -i build/x86_64/*.deb; then
+          if ! dpkg -i zig-out/pkg/*amd64.deb; then
             echo "Failed to install AMD64 package"
             exit 1
           fi
           
           # Note: ARM64 package can't be verified in AMD64 container
           # but we can check if it exists
-          if [ ! -f build/arm64/*.deb ]; then
+          if [ ! -f zig-out/pkg/*arm64.deb ]; then
             echo "ARM64 package not found"
             exit 1
           fi
@@ -245,8 +245,8 @@ jobs:
         with:
           name: timbre-deb
           path: |
-            build/x86_64/*.deb
-            build/arm64/*.deb
+            zig-out/pkg/*amd64.deb
+            zig-out/pkg/*arm64.deb
           retention-days: 7
 
   release:
@@ -267,8 +267,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            x86_64/*.deb
-            arm64/*.deb
+            zig-out/pkg/*amd64.deb
+            zig-out/pkg/*arm64.deb
           draft: ${{ needs.validate.outputs.skip_release == 'true' }}
           prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}

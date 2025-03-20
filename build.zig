@@ -154,7 +154,6 @@ fn getFlags(lang: Language, optimize: std.builtin.Mode, os_tag: std.Target.Os.Ta
             "-O3",
             "-ffat-lto-objects",
             "-flto",
-            "-flto-partition=one",
             "-fno-rtti",
             "-funroll-loops",
         }) catch unreachable;
