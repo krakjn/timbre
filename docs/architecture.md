@@ -1,7 +1,7 @@
 # Timbre Architecture
 
 ## Overview
-Timbre is a modern C++ application designed for high performance and reliability. It uses a modular architecture with clear separation of concerns.
+Timbre is a modern C++ application designed for high performance and reliability. It uses a modular architecture with clear separation of concerns, built with Zig's build system.
 
 ## Component Architecture
 
@@ -20,19 +20,19 @@ graph TB
     Worker --> Log
     
     subgraph Build System
-        CMake --> Version
-        CMake --> Static[Static Analysis]
-        CMake --> Tests[Test Suite]
+        Zig --> Version
+        Zig --> Static[Static Analysis]
+        Zig --> Tests[Test Suite]
     end
 ```
 
 ## Key Components
 
 ### Build System
-- CMake-based build system
+- Zig-based build system
 - Multi-architecture support (x86_64, arm64)
-- Integrated static analysis
-- Automated testing with Catch2
+- Integrated static analysis (clang-tidy, cppcheck)
+- Automated testing with Zig test runner
 - Version management system
 
 ### Core Components
@@ -88,8 +88,16 @@ timbre/
 │   ├── toml/         # TOML parser
 │   └── CLI/          # CLI11 library
 ├── src/              # Implementation files
+│   ├── main.cpp      # Entry point
+│   ├── timbre.cpp    # Core functionality
+│   ├── config.cpp    # Configuration handling
+│   └── log.cpp       # Logging system
 ├── tests/            # Test suite
-├── cmake/            # Build system
+│   ├── test.zig      # Zig test runner
+│   ├── interface.c   # C interface tests
+│   └── interface.h   # Test headers
 ├── docs/             # Documentation
 └── pkg/              # Packaging
+    ├── build_deb.sh  # Debian package builder
+    └── version.txt   # Version file
 ``` 

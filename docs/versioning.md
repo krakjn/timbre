@@ -5,7 +5,7 @@ Timbre uses semantic versioning (MAJOR.MINOR.PATCH) with additional development 
 
 ## Version Format
 - Release version: `X.Y.Z` (e.g., `1.2.3`)
-- Development version: `X.Y.Z-dev_<sha>` (e.g., `1.2.3-dev_abcd1234`)
+- Development version: `X.Y.Z+<sha>` (e.g., `1.2.3+abcd1234`)
 
 ## Version Components
 - `MAJOR` (X): Incremented for incompatible API changes
@@ -24,32 +24,35 @@ graph TD
     C --> E[Read version.txt]
     D --> E
     
-    E --> F{VERSION_BUMP?}
-    F -->|yes| G[Bump Version]
+    E --> F{Is PR?}
+    F -->|yes| G[Check PR Template]
     F -->|no| H[Keep Version]
     
-    G --> I[Update version.txt]
-    H --> J[Load Version]
-    I --> J
+    G --> I{Version Bump?}
+    I -->|yes| J[Bump Version]
+    I -->|no| K[Skip Release]
     
-    J --> K{Is Dev Branch?}
-    K -->|yes| L[Add Git SHA]
-    K -->|no| M[Use Clean Version]
+    J --> L[Update version.txt]
+    H --> M[Load Version]
+    L --> M
+    K --> M
     
-    L --> N[Configure Build]
-    M --> N
+    M --> N{Is Dev Branch?}
+    N -->|yes| O[Add Git SHA]
+    N -->|no| P[Use Clean Version]
     
-    N --> O[Build Timbre]
+    O --> Q[Configure Build]
+    P --> Q
 ```
 
 ## Version File
 The version is stored in `pkg/version.txt` in clean semantic version format (X.Y.Z). This file is:
-- Read during build
-- Updated during version bumps
+- Read during build by Zig
+- Updated during version bumps via GitHub Actions
 - Used as source of truth for release versions
 
 ## Build System Integration
-The versioning system is integrated into CMake and provides the following variables:
+The versioning system is integrated into Zig and provides the following macros in `version.h`:
 - `TIMBRE_VERSION_MAJOR`: Major version number
 - `TIMBRE_VERSION_MINOR`: Minor version number
 - `TIMBRE_VERSION_PATCH`: Patch version number
@@ -57,15 +60,10 @@ The versioning system is integrated into CMake and provides the following variab
 - `TIMBRE_IS_DEV`: Build type indicator (1 for dev, 0 for release)
 
 ## Version Bumping
-Version bumping is controlled through CMake options:
-- `VERSION_BUMP`: Master switch for version bumping
-- `BUMP_MAJOR`: Increment major version
-- `BUMP_MINOR`: Increment minor version
-- `BUMP_PATCH`: Increment patch version
-
-## Pull Request Integration
-Version bumps are typically triggered through pull requests using a template that specifies the type of version bump required:
+Version bumping is controlled through pull request templates:
 - [ ] MAJOR: Breaking changes
 - [ ] MINOR: New features
 - [ ] PATCH: Bug fixes
-- [ ] NONE: No version change 
+- [ ] NONE: No version change
+
+The GitHub Actions workflow validates the PR template and performs the appropriate version bump based on the selection. 

@@ -201,11 +201,11 @@ fn addSources(exe: *std.Build.Step.Compile, enable_clang_tidy: bool, enable_cppc
             "src/timbre.cpp",
             "src/config.cpp",
             "src/log.cpp",
+            "--checks=-*,clang-analyzer-*,portability-*",
             "--",
             "-I./inc",
             "-std=c++17",
         });
-        clang_tidy.addArg("-checks=-*,clang-analyzer-*,portability-*");
         exe.step.dependOn(&clang_tidy.step);
     }
 

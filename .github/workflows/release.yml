@@ -222,6 +222,7 @@ jobs:
       # Build freshly bumped version
       - name: Build packages
         run: |
+          zig build all --release-fast
           zig build package --release=fast
       
       - name: Install and verify package
@@ -243,10 +244,16 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: timbre-deb
+          name: timbre-artifacts
           path: |
             zig-out/pkg/*amd64.deb
             zig-out/pkg/*arm64.deb
+            zig-out/aarch64-linux-musl/timbre
+            zig-out/x86_64-linux-musl/timbre
+            zig-out/aarch64-macos/timbre
+            zig-out/x86_64-macos/timbre
+            zig-out/aarch64-windows/timbre.exe
+            zig-out/x86_64-windows/timbre.exe
           retention-days: 7
 
   release:
@@ -261,7 +268,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: timbre-deb
+          name: timbre-artifacts
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -269,6 +276,12 @@ jobs:
           files: |
             zig-out/pkg/*amd64.deb
             zig-out/pkg/*arm64.deb
+            zig-out/aarch64-linux-musl/timbre
+            zig-out/x86_64-linux-musl/timbre
+            zig-out/aarch64-macos/timbre
+            zig-out/x86_64-macos/timbre
+            zig-out/x86_64-windows/timbre.exe
+            zig-out/aarch64-windows/timbre.exe
           draft: ${{ needs.validate.outputs.skip_release == 'true' }}
           prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}
