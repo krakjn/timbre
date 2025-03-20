@@ -222,7 +222,7 @@ jobs:
       # Build freshly bumped version
       - name: Build packages
         run: |
-          zig build all --release-fast
+          zig build all --release=fast
           zig build package --release=fast
       
       - name: Install and verify package
