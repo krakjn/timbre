@@ -1,5 +1,4 @@
 /.timbre
-/build
 
 # generated
 /inc/timbre/version.h
@@ -12,5 +11,6 @@
 
 
 # zig
-/zig-out/
+/out
+/zig-out
 /.zig-cache/

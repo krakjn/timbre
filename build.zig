@@ -32,7 +32,11 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    addDebianPackaging(b, exe, target);
+    // Add cross-compilation targets
+    const target_steps = addCrossTargets(b, optimize);
+
+    // Add packaging step that depends on cross-compilation
+    addDebianPackaging(b, target_steps);
 
     const test_step = b.step("test", "Run tests");
 
@@ -71,8 +75,6 @@ pub fn build(b: *std.Build) void {
 
     const run_zig_tests = b.addRunArtifact(zig_tests);
     test_step.dependOn(&run_zig_tests.step);
-
-    addCrossTargets(b, optimize);
 }
 
 fn addSources(exe: *std.Build.Step.Compile, optimize: std.builtin.Mode, enable_clang_tidy: bool, enable_cppcheck: bool) void {
@@ -145,125 +147,36 @@ fn addSources(exe: *std.Build.Step.Compile, optimize: std.builtin.Mode, enable_c
     exe.linkLibCpp();
 }
 
-fn addDebianPackaging(b: *std.Build, exe: *std.Build.Step.Compile, target: std.Build.ResolvedTarget) void {
+fn addDebianPackaging(b: *std.Build, target_steps: std.StringHashMap(*std.Build.Step)) void {
     const package_step = b.step("package", "Create a Debian package (.deb) for distribution");
 
-    const version = getVersionString(b);
-    const arch = @tagName(target.result.cpu.arch);
-    const deb_arch = blk: {
-        if (std.mem.eql(u8, arch, "aarch64")) {
-            break :blk "arm64";
-        } else if (std.mem.eql(u8, arch, "x86_64")) {
-            break :blk "amd64";
-        } else {
-            break :blk arch;
-        }
+    const mkdir_cmd = b.addSystemCommand(&.{ "mkdir", "-p", "out/pkg" });
+
+    // NOTE: this is to ensure the cross-compilation targets are built first
+    const amd64_step = target_steps.get("x86_64-linux-musl") orelse {
+        std.debug.print("Error: x86_64-linux-musl target not found\n", .{});
+        return;
     };
 
-    const pkg_dir = b.fmt("build/pkg-{s}", .{deb_arch});
-    const mkdir_cmd = b.addSystemCommand(&.{ "mkdir", "-p" });
-    mkdir_cmd.addArgs(&.{
-        b.fmt("{s}/DEBIAN", .{pkg_dir}),
-        b.fmt("{s}/usr/bin", .{pkg_dir}),
-        b.fmt("{s}/usr/share/doc/timbre", .{pkg_dir}),
-    });
-
-    const control_content = b.fmt(
-        \\Package: {s}
-        \\Version: {s}
-        \\Architecture: {s}
-        \\Maintainer: {s}
-        \\Depends: {s}
-        \\Section: {s}
-        \\Priority: {s}
-        \\Homepage: {s}
-        \\Description: {s}
-        \\ {s}
-        \\
-    , .{
-        "timbre",
-        version,
-        deb_arch,
-        "Tony B <krakjn@gmail.com>",
-        "libc6, libstdc++6",
-        "utils",
-        "optional",
-        "https://github.com/krakjn/timbre",
-        "A modern C++ logging utility",
-        "A modern, efficient, and flexible logging utility for C++ applications. It provides a clean command-line interface for structured logging with support for multiple output formats and destinations.",
-    });
-
-    const write_control = b.addWriteFile(b.fmt("{s}/DEBIAN/control", .{pkg_dir}), control_content);
-
-    const installed_exe = b.addInstallArtifact(exe, .{});
-
-    const copy_exe = b.addSystemCommand(&.{ "cp", b.getInstallPath(.bin, "timbre"), b.fmt("{s}/usr/bin/", .{pkg_dir}) });
-    copy_exe.step.dependOn(&installed_exe.step);
-
-    const dpkg_cmd = b.addSystemCommand(&.{
-        "dpkg-deb",
-        "--build",
-        "--root-owner-group",
-        pkg_dir,
-        b.fmt("build/timbre-{s}-{s}.deb", .{ version, deb_arch }),
-    });
-
-    dpkg_cmd.step.dependOn(&write_control.step);
-    dpkg_cmd.step.dependOn(&mkdir_cmd.step);
-    dpkg_cmd.step.dependOn(&copy_exe.step);
-
-    package_step.dependOn(&dpkg_cmd.step);
-}
-
-fn getVersionString(b: *std.Build) []const u8 {
-    const version_contents = std.fs.cwd().readFileAlloc(b.allocator, "pkg/version.txt", 1024) catch {
-        return "0.0.0";
-    };
-    defer b.allocator.free(version_contents);
-
-    return std.mem.trim(u8, version_contents, "\n\r");
-}
-
-fn addCrossTargets(b: *std.Build, optimize: std.builtin.Mode) void {
-    const targets = [_][]const u8{
-        "aarch64-macos-none",
-        "x86_64-macos-none",
-        "aarch64-linux-musl",
-        "x86_64-linux-musl",
-        "aarch64-windows-gnu",
-        "x86_64-windows-gnu",
+    const arm64_step = target_steps.get("aarch64-linux-musl") orelse {
+        std.debug.print("Error: aarch64-linux-musl target not found\n", .{});
+        return;
     };
 
-    const all_step = b.step("all", "Build all cross-compilation targets (output to out/<triple>)");
+    const amd64_pkg = b.addSystemCommand(&.{
+        "bash", "pkg/build_deb.sh", "amd64",
+    });
+    amd64_pkg.step.dependOn(&mkdir_cmd.step);
+    amd64_pkg.step.dependOn(amd64_step);
 
-    // Create individual target steps
-    for (targets) |triple| {
-        const target_query = std.Target.Query.parse(.{
-            .arch_os_abi = triple,
-        }) catch |err| {
-            std.debug.print("Error parsing target triple '{s}': {}\n", .{ triple, err });
-            continue;
-        };
-        const resolved_target = b.resolveTargetQuery(target_query);
+    const arm64_pkg = b.addSystemCommand(&.{
+        "bash", "pkg/build_deb.sh", "arm64",
+    });
+    arm64_pkg.step.dependOn(&mkdir_cmd.step);
+    arm64_pkg.step.dependOn(arm64_step);
 
-        const target_exe = b.addExecutable(.{
-            .name = "timbre",
-            .target = resolved_target,
-            .optimize = optimize,
-        });
-
-        addSources(target_exe, optimize, false, false);
-
-        const target_install = b.addInstallArtifact(target_exe, .{});
-        target_install.dest_dir = .{ .custom = b.pathJoin(&.{ "out", triple }) };
-
-        // Add a step for building this specific target
-        const target_step = b.step(triple, b.fmt("Build for {s}", .{triple}));
-        target_step.dependOn(&target_install.step);
-
-        // Add this target to the "all" step
-        all_step.dependOn(&target_install.step);
-    }
+    package_step.dependOn(&amd64_pkg.step);
+    package_step.dependOn(&arm64_pkg.step);
 }
 
 pub fn generateVersionFile(b: *std.Build) void {
@@ -304,11 +217,6 @@ pub fn generateVersionFile(b: *std.Build) void {
         \\
     , .{ major, minor, patch, git_sha, is_dev_str });
 
-    std.fs.cwd().makePath("inc/timbre") catch {
-        std.debug.print("Error: Could not create inc/timbre directory\n", .{});
-        return;
-    };
-
     std.fs.cwd().writeFile(.{
         .sub_path = "inc/timbre/version.h",
         .data = version_h_content,
@@ -316,4 +224,55 @@ pub fn generateVersionFile(b: *std.Build) void {
         std.debug.print("Error: Could not write version.h\n", .{});
         return;
     };
+}
+
+fn addCrossTargets(b: *std.Build, optimize: std.builtin.Mode) std.StringHashMap(*std.Build.Step) {
+    const targets = [_][]const u8{
+        "aarch64-macos-none",
+        "x86_64-macos-none",
+        "aarch64-linux-musl",
+        "x86_64-linux-musl",
+        "aarch64-windows-gnu",
+        "x86_64-windows-gnu",
+    };
+
+    const all_step = b.step("all", "Build all cross-compilation targets (output to out/<triple>)");
+
+    var target_steps = std.StringHashMap(*std.Build.Step).init(b.allocator);
+
+    // Create individual target steps
+    for (targets) |triple| {
+        const target_query = std.Target.Query.parse(.{
+            .arch_os_abi = triple,
+        }) catch |err| {
+            std.debug.print("Error parsing target triple '{s}': {}\n", .{ triple, err });
+            continue;
+        };
+        const resolved_target = b.resolveTargetQuery(target_query);
+
+        const target_exe = b.addExecutable(.{
+            .name = "timbre",
+            .target = resolved_target,
+            .optimize = optimize,
+        });
+
+        addSources(target_exe, optimize, false, false);
+
+        const target_install = b.addInstallArtifact(target_exe, .{});
+        target_install.dest_dir = .{ .custom = b.pathJoin(&.{ "out", triple }) };
+
+        // Add a step for building this specific target
+        const target_step = b.step(triple, b.fmt("Build for {s}", .{triple}));
+        target_step.dependOn(&target_install.step);
+
+        // Store the step in the hash map
+        target_steps.put(triple, target_step) catch {
+            std.debug.print("Error storing step for triple '{s}'\n", .{triple});
+        };
+
+        // Add this target to the "all" step
+        all_step.dependOn(&target_install.step);
+    }
+
+    return target_steps;
 }
