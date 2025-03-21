@@ -103,6 +103,7 @@ jobs:
         password: ${{ secrets.TIMBRE_TOKEN }}
     outputs:
       new_version: ${{ steps.bump.outputs.new_version }}
+      dev_version: ${{ steps.bump.outputs.dev_version }}
       changelog: ${{ steps.changelog.outputs.content }}
     steps:
       - name: Checkout code
@@ -183,6 +184,9 @@ jobs:
           # always write a clean semver to pkg/version.txt
           echo "$NEW_VERSION" > pkg/version.txt
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+          # for dev releases
+          echo "dev_version=$NEW_VERSION+$(git rev-parse --short=8 HEAD)" >> $GITHUB_OUTPUT
 
       # Dev releases don't get a tag
       - name: Create Git tag
@@ -269,23 +273,35 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: timbre-artifacts
-      
-      - name: list files
+
+      - name: Prepare Release Assets
+        id: prepare
         run: |
-          ls -la
+          VERSION="${{ needs.version.outputs.new_version }}"
+          if ${{ needs.validate.outputs.bump_type == 'dev' }}; then
+            VERSION="${{ needs.version.outputs.dev_version }}"
+          fi
+          mv aarch64-linux-musl/timbre timbre-${VERSION}-linux-arm64
+          mv x86_64-linux-musl/timbre timbre-${VERSION}-linux-x86_64
+          mv aarch64-macos/timbre timbre-${VERSION}-macos-arm64
+          mv x86_64-macos/timbre timbre-${VERSION}-macos-x86_64
+          mv aarch64-windows/timbre.exe timbre-${VERSION}-windows-arm64.exe
+          mv x86_64-windows/timbre.exe timbre-${VERSION}-windows-x86_64.exe
+          mv pkg/*amd64.deb .
+          mv pkg/*arm64.deb .
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            pkg/*amd64.deb
-            pkg/*arm64.deb
-            aarch64-linux-musl/timbre
-            x86_64-linux-musl/timbre
-            aarch64-macos/timbre
-            x86_64-macos/timbre
-            aarch64-windows/timbre.exe
-            x86_64-windows/timbre.exe
+            timbre-${VERSION}-linux-arm64
+            timbre-${VERSION}-linux-x86_64
+            timbre-${VERSION}-macos-arm64
+            timbre-${VERSION}-macos-x86_64
+            timbre-${VERSION}-windows-arm64.exe
+            timbre-${VERSION}-windows-x86_64.exe
+            timbre-${VERSION}-amd64.deb
+            timbre-${VERSION}-arm64.deb
           draft: ${{ needs.validate.outputs.skip_release == 'true' }}
           prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}
