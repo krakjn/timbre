@@ -269,26 +269,32 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: timbre-artifacts
+      
+      - name: list files
+        run: |
+          ls -la
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            zig-out/pkg/*amd64.deb
-            zig-out/pkg/*arm64.deb
-            zig-out/aarch64-linux-musl/timbre
-            zig-out/x86_64-linux-musl/timbre
-            zig-out/aarch64-macos/timbre
-            zig-out/x86_64-macos/timbre
-            zig-out/x86_64-windows/timbre.exe
-            zig-out/aarch64-windows/timbre.exe
+            pkg/*amd64.deb
+            pkg/*arm64.deb
+            aarch64-linux-musl/timbre
+            x86_64-linux-musl/timbre
+            aarch64-macos/timbre
+            x86_64-macos/timbre
+            aarch64-windows/timbre.exe
+            x86_64-windows/timbre.exe
           draft: ${{ needs.validate.outputs.skip_release == 'true' }}
           prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}
           body: |
             ${{ needs.version.outputs.changelog }}
 
-            ### Debian Package
+            ### Installation
+
+            #### Debian Package
             ```bash
             # For AMD64 (x86_64)
             sudo dpkg -i timbre-${{ needs.version.outputs.new_version }}-amd64.deb
@@ -296,5 +302,13 @@ jobs:
             # For ARM64
             sudo dpkg -i timbre-${{ needs.version.outputs.new_version }}-arm64.deb
             ```
+
+            #### Binary Downloads
+            Choose the appropriate binary for your platform and put it in your PATH.
+            Common paths: 
+            - Linux: `/usr/local/bin`
+            - macOS: `/usr/local/bin`
+            - Windows: `%USERPROFILE%\AppData\Local\Microsoft\WindowsApps\`
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
