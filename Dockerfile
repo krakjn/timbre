@@ -7,6 +7,7 @@ RUN <<EOF
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y \
+    apt-utils \
     ca-certificates \
     clang-format \
     clang-tidy \
