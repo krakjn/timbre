@@ -14,7 +14,6 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     outputs:
-      skip_release: ${{ steps.validate.outputs.skip_release }}
       bump_type: ${{ steps.validate.outputs.bump_type }}
     steps:
       - name: Checkout code
@@ -27,7 +26,6 @@ jobs:
         shell: bash
         run: |
           BUMP_TYPE=none
-          SKIP_RELEASE=false
           
           # For pull requests, check if it was merged
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
@@ -35,9 +33,7 @@ jobs:
             if [[ "${{ github.event.pull_request.merged }}" != "true" ]]; then
               echo "Pull request was closed without merging, skipping release"
               BUMP_TYPE=none
-              SKIP_RELEASE=true
               echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
-              echo "skip_release=$SKIP_RELEASE" >> $GITHUB_OUTPUT
               exit 0
             fi
             
@@ -54,7 +50,7 @@ jobs:
                 echo "  [ ] PATCH:"
                 echo "  [ ] NONE:"
                 echo "Assuming no bump intended"
-                SKIP_RELEASE=true
+                BUMP_TYPE=none
             else
                 # Check if exactly one version bump option is selected
                 SELECTED_COUNT=$(echo "$PR_BODY" | grep -c "\[\\S\] \(MAJOR\|MINOR\|PATCH\|NONE\):")
@@ -78,21 +74,19 @@ jobs:
                     BUMP_TYPE=patch
                 else
                     echo "Selected: NO version bump"
-                    SKIP_RELEASE=true
+                    BUMP_TYPE=none
                 fi
             fi
           else # not a PR
             echo "Manual workflow dispatch detected, proceeding with DEV version bump"
             BUMP_TYPE=dev
-            SKIP_RELEASE=false
           fi
               
           echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
-          echo "skip_release=$SKIP_RELEASE" >> $GITHUB_OUTPUT
 
   version:
     needs: [validate]
-    if: ${{ needs.validate.outputs.skip_release != 'true' }}
+    if: ${{ needs.validate.outputs.bump_type != 'none' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -261,7 +255,7 @@ jobs:
 
   release:
     needs: [validate, version]
-    if: ${{ needs.validate.outputs.skip_release != 'true' }}
+    if: ${{ needs.validate.outputs.bump_type != 'none' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -298,7 +292,7 @@ jobs:
         with:
           files: |
             release/*
-          draft: ${{ needs.validate.outputs.skip_release == 'true' }}
+          draft: ${{ needs.validate.outputs.bump_type == 'dev' }}
           prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}
           body: |
