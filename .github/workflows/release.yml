@@ -250,8 +250,7 @@ jobs:
         with:
           name: timbre-artifacts
           path: |
-            zig-out/pkg/*amd64.deb
-            zig-out/pkg/*arm64.deb
+            zig-out/pkg/*.deb
             zig-out/aarch64-linux-musl/timbre
             zig-out/x86_64-linux-musl/timbre
             zig-out/aarch64-macos/timbre
@@ -281,14 +280,16 @@ jobs:
           if ${{ needs.validate.outputs.bump_type == 'dev' }}; then
             VERSION="${{ needs.version.outputs.dev_version }}"
           fi
-          
-          mv aarch64-linux-musl/timbre "timbre-${VERSION}-linux-arm64"
-          mv x86_64-linux-musl/timbre "timbre-${VERSION}-linux-x86_64"
-          mv aarch64-macos/timbre "timbre-${VERSION}-macos-arm64"
-          mv x86_64-macos/timbre "timbre-${VERSION}-macos-x86_64"
-          mv aarch64-windows/timbre.exe "timbre-${VERSION}-windows-arm64.exe"
-          mv x86_64-windows/timbre.exe "timbre-${VERSION}-windows-x86_64.exe"
-          mv pkg/*.deb .
+
+          mkdir release
+          # give the files better names
+          mv aarch64-linux-musl/timbre "release/timbre-${VERSION}-linux-arm64"
+          mv x86_64-linux-musl/timbre "release/timbre-${VERSION}-linux-x86_64"
+          mv aarch64-macos/timbre "release/timbre-${VERSION}-macos-arm64"
+          mv x86_64-macos/timbre "release/timbre-${VERSION}-macos-x86_64"
+          mv aarch64-windows/timbre.exe "release/timbre-${VERSION}-windows-arm64.exe"
+          mv x86_64-windows/timbre.exe "release/timbre-${VERSION}-windows-x86_64.exe"
+          mv pkg/*.deb "release/"
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -296,9 +297,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            timbre-*
+            release/*
           draft: ${{ needs.validate.outputs.skip_release == 'true' }}
-          prerelease: ${{ needs.validate.outputs.bump_type == 'dev' }}
+          prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}
           body: |
             ${{ needs.version.outputs.changelog }}
