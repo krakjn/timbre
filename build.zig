@@ -152,37 +152,61 @@ fn getFlags(lang: Language, optimize: std.builtin.Mode, os_tag: std.Target.Os.Ta
         flags.appendSlice(&.{
             "-DNDEBUG",
             "-O3",
-            "-ffat-lto-objects",
-            "-flto",
             "-fno-rtti",
             "-funroll-loops",
         }) catch unreachable;
+
+        switch (os_tag) {
+            .windows => {
+                // Windows: avoid LTO due to PDB generation issues
+                flags.appendSlice(&.{
+                    "-D_WIN32",
+                    "-DWIN32_LEAN_AND_MEAN",
+                }) catch unreachable;
+            },
+            .linux => {
+                // Due to Clang/LLVM, thin LTO is best
+                flags.appendSlice(&.{
+                    "-flto=thin",
+                }) catch unreachable;
+            },
+            // macOS: avoid LTO in cross-compilation to prevent TBD parsing errors
+            else => {},
+        }
     }
 
-    if (os_tag == .windows) {
-        flags.appendSlice(&.{
-            "-D_WIN32",
-            "-DWIN32_LEAN_AND_MEAN",
-        }) catch unreachable;
-    } else if (os_tag == .macos) {
-        flags.appendSlice(&.{
-            "-D_DARWIN_C_SOURCE",
-        }) catch unreachable;
-    } else if (os_tag == .linux) {
-        flags.appendSlice(&.{
-            "-D_GNU_SOURCE",
-        }) catch unreachable;
-    }
+    // Architecture-specific flags
+    switch (arch) {
+        .x86_64 => {
+            flags.appendSlice(&.{
+                "-march=x86-64",
+                "-mtune=generic",
+            }) catch unreachable;
 
-    if (arch == .x86_64) {
-        flags.appendSlice(&.{
-            "-march=x86-64",
-            "-mtune=generic",
-        }) catch unreachable;
-    } else if (arch == .aarch64) {
-        flags.appendSlice(&.{
-            "-march=armv8-a",
-        }) catch unreachable;
+            // Add AVX2 for macOS and Windows x64
+            // NOTE: AVX2 (Advanced Vector Extensions 2) is a CPU instruction set extension
+            // that enables advanced SIMD (Single Instruction, Multiple Data) operations.
+            if (os_tag == .macos or os_tag == .windows) {
+                flags.appendSlice(&.{
+                    "-mavx2",
+                }) catch unreachable;
+            }
+        },
+        .aarch64 => {
+            if (os_tag == .macos) {
+                // Use Apple Silicon optimizations
+                flags.appendSlice(&.{
+                    "-march=armv8.5-a",
+                    "-mcpu=apple-m1",
+                }) catch unreachable;
+            } else {
+                // Generic ARM64
+                flags.appendSlice(&.{
+                    "-march=armv8-a",
+                }) catch unreachable;
+            }
+        },
+        else => {},
     }
 
     return flags.toOwnedSlice() catch unreachable;
