@@ -182,9 +182,9 @@ jobs:
           # for dev releases
           echo "dev_version=$NEW_VERSION+$(git rev-parse --short=8 HEAD)" >> $GITHUB_OUTPUT
 
-      # Dev releases don't get a tag
+      # Only merge commits get a tag
       - name: Create Git tag
-        if: ${{ needs.validate.outputs.bump_type != 'dev' }}
+        if: ${{ needs.validate.outputs.bump_type != 'dev' && github.event_name == 'pull_request' }}
         shell: bash
         run: |
           TAG_NAME="${{ steps.bump.outputs.new_version }}"
@@ -207,15 +207,7 @@ jobs:
           
           git add CHANGELOG.md pkg/version.txt
           git commit -m "chore: release ${{ steps.bump.outputs.new_version }}"
-          
-          # Push to the appropriate branch
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            # For merged PRs, push to the target branch (main)
-            git push origin HEAD:main
-          else
-            # For workflow_dispatch, push to the current branch
-            git push origin HEAD:${GITHUB_REF#refs/heads/}
-          fi
+          git push origin HEAD:${GITHUB_REF#refs/heads/}}
 
       # Build freshly bumped version
       - name: Build packages
