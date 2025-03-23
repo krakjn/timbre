@@ -341,9 +341,7 @@ jobs:
           draft: ${{ needs.validate.outputs.bump_type == 'dev' }}
           prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}
+          # NOTE: github ternary operator is different syntax
+          # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/evaluate-expressions-in-workflows-and-actions#example
           body: |
-            if ${{ needs.validate.outputs.bump_type == 'dev' }}; then
-              ${{ needs.version.outputs.dev_changelog }}
-            else
-              ${{ needs.version.outputs.changelog }}
-            fi
+            ${{ needs.validate.outputs.bump_type == 'dev' && needs.version.outputs.dev_changelog || needs.version.outputs.changelog }}
