@@ -234,8 +234,7 @@ jobs:
           PR_URL=$(gh pr create --title "Release $NEW_VERSION" \
                      --body "Automated release PR for version $NEW_VERSION" \
                      --base main \
-                     --head $RELEASE_BRANCH \
-                     --label "release")
+                     --head $RELEASE_BRANCH)
           
           # Auto-merge the PR
           PR_NUMBER=$(echo $PR_URL | grep -o '[0-9]*$')
