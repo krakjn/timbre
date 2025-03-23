@@ -257,7 +257,7 @@ jobs:
         shell: bash
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0)
-          auto-changelog --config cfg/auto-changelog --starting-commit $PREV_TAG --output RELEASE_NOTES.md
+          auto-changelog --config cfg/auto-changelog --starting-version $PREV_TAG --output RELEASE_NOTES.md
           
           echo "content<<EOF" >> $GITHUB_OUTPUT
           cat RELEASE_NOTES.md >> $GITHUB_OUTPUT
