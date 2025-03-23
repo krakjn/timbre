@@ -211,7 +211,7 @@ jobs:
           echo "$NEW_VERSION" > pkg/version.txt
           
           # Generate changelog from previous tag to current
-          auto-changelog --config cfg/auto-changelog --starting-commit $PREV_TAG --output RELEASE_NOTES.md
+          auto-changelog --config cfg/auto-changelog --starting-version $PREV_TAG --output RELEASE_NOTES.md
           auto-changelog --config cfg/auto-changelog --output CHANGELOG.md
           
           # Commit the changelog and version bump
