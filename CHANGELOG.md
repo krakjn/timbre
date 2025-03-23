@@ -2,15 +2,9 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
-### [1.0.0](https://github.com/krakjn/timbre/compare/0.4.4...1.0.0)
-
-> 20 March 2025
-
-- Zig build system! [`#12`](https://github.com/krakjn/timbre/pull/12)
-
 #### [0.4.4](https://github.com/krakjn/timbre/compare/0.4.3...0.4.4)
 
-> 11 March 2025
+> 21 March 2025
 
 - docs: allow all commits [`#11`](https://github.com/krakjn/timbre/pull/11)
 - chore: release 0.4.3 [`b921a4c`](https://github.com/krakjn/timbre/commit/b921a4cf1544a90bfbd9c46e8026615e73e1e055)
@@ -75,7 +69,7 @@ All notable changes to this project will be documented in this file. Dates are d
 - feat(refactor): static_analysis and better version pipeline [`d106024`](https://github.com/krakjn/timbre/commit/d106024258c4e92a5960d6f375002d8cf69a6042)
 - chore: bump version to 0.1.0+15 [`1bfc9f7`](https://github.com/krakjn/timbre/commit/1bfc9f7a4eeb94a2f7b4cd55f59060455a146a6a)
 
-#### 0.1.0+47
+#### 0.1.0+37
 
 > 6 March 2025
 
@@ -117,13 +111,3 @@ All notable changes to this project will be documented in this file. Dates are d
 - chore: release 0.1.0+35 [`b7e68fe`](https://github.com/krakjn/timbre/commit/b7e68fe7d19202e93fc735d8f4cdff9ad10ed596)
 - ci: bash &gt; sh [`83b7caf`](https://github.com/krakjn/timbre/commit/83b7caf6361f1314b79872894de06abeb72ccbcd)
 - chore: release 0.1.0+37 [`295be2e`](https://github.com/krakjn/timbre/commit/295be2e5b7af950af0dbeac181d5e5422ee44035)
-- ci: github is particular with outputs [`fe4ad76`](https://github.com/krakjn/timbre/commit/fe4ad76d667f96667fb8b3a7a2866d23a37c1db3)
-- chore: release 0.1.0+39 [`e9cd534`](https://github.com/krakjn/timbre/commit/e9cd534fdaa83bc1f881c94d4268785ae343ac8f)
-- ci: trying to output changelog on release [`57519cb`](https://github.com/krakjn/timbre/commit/57519cb1bc97eaee25e3acfc7b1b186444503021)
-- chore: release 0.1.0+41 [`95ca90b`](https://github.com/krakjn/timbre/commit/95ca90b5ecd4e70aabb99122ffe391f13d5261f8)
-- ci(release): use regular EOF [`af87b88`](https://github.com/krakjn/timbre/commit/af87b88870e518821d3ffb5aa1279343e1627556)
-- chore: release 0.1.0+42 [`8df3689`](https://github.com/krakjn/timbre/commit/8df3689d130064ea7d9ba08c695537cd05be2111)
-- docs: update pull request template [`6377e14`](https://github.com/krakjn/timbre/commit/6377e14b7755b90620137bc47a673b90b8bf9e37)
-- docs: update pull-request template again [`e653bdb`](https://github.com/krakjn/timbre/commit/e653bdb314fd988c39c22a114a0bac67a65de178)
-- ci: output changelog in the proper step [`95095d9`](https://github.com/krakjn/timbre/commit/95095d9ea750f10259962260c5ae7c4297f45a66)
-- chore: release 0.1.0+47 [`569b5f8`](https://github.com/krakjn/timbre/commit/569b5f8c74fee29c1675485855d5bd895b6f5d1e)

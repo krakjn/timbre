@@ -3,18 +3,21 @@ name: Release
 on:
   workflow_dispatch:
   pull_request:
+    # a closed PR runs on the commit that was merged back into main
     types: [closed]
     branches:
       - main
 
 permissions:
   contents: read
+  pull-requests: write  # Needed for creating PRs
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     outputs:
       bump_type: ${{ steps.validate.outputs.bump_type }}
+      dev_release: ${{ steps.validate.outputs.dev_release }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -78,11 +81,19 @@ jobs:
                 fi
             fi
           else # not a PR
-            echo "Manual workflow dispatch detected, proceeding with DEV version bump"
+            echo "Manual workflow dispatch detected, proceeding with dev release"
             BUMP_TYPE=dev
           fi
               
           echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            DEV_RELEASE=true
+          else
+            DEV_RELEASE=false
+          fi
+          
+          echo "dev_release=$DEV_RELEASE" >> $GITHUB_OUTPUT
 
   version:
     needs: [validate]
@@ -91,32 +102,28 @@ jobs:
     permissions:
       contents: write
     container:
-      image: ghcr.io/krakjn/timbre
+      image: ghcr.io/ballast-dev/timbre
       credentials:
         username: krakjn
         password: ${{ secrets.TIMBRE_TOKEN }}
     outputs:
       new_version: ${{ steps.bump.outputs.new_version }}
-      dev_version: ${{ steps.bump.outputs.dev_version }}
       changelog: ${{ steps.changelog.outputs.content }}
+      dev_changelog: ${{ steps.dev_changelog.outputs.content }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       
       - name: Setup Git
         run: |
           # Prevent ownership errors in container environments
           git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'github-actions@github.com'
-          
           # Ensure we can push changes
           git remote -v || true
           if ! git remote -v | grep -q origin; then
-            git remote add origin "https://x-access-token:${{ secrets.TIMBRE_TOKEN }}@github.com/krakjn/timbre.git"
+            git remote add origin "https://x-access-token:${{ secrets.TIMBRE_TOKEN }}@github.com/ballast-dev/timbre.git"
           fi
       
       - name: Parse version
@@ -153,9 +160,6 @@ jobs:
           MINOR="${{ steps.parse_version.outputs.minor }}"
           PATCH="${{ steps.parse_version.outputs.patch }}"
 
-          # CMake will query for main branch, if so release version
-          # otherwise it will assign IS_DEV and be a dev version
-          # For pull requests, bump according to the selected type
           case "$BUMP_TYPE" in
             "major")
               NEW_VERSION="$((MAJOR + 1)).0.0"
@@ -167,8 +171,9 @@ jobs:
               NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
               ;;
             "dev")
-              echo "skipping version bump"
-              NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+              NEW_VERSION="$MAJOR.$MINOR.$PATCH+$(git rev-parse --short=8 HEAD)"
+              echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+              exit 0  # don't write to version file
               ;;
           esac
 
@@ -179,35 +184,75 @@ jobs:
           echo "$NEW_VERSION" > pkg/version.txt
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
-          # for dev releases
-          echo "dev_version=$NEW_VERSION+$(git rev-parse --short=8 HEAD)" >> $GITHUB_OUTPUT
-
-      # Only merge commits get a tag
-      - name: Create Git tag
-        if: ${{ needs.validate.outputs.bump_type != 'dev' && github.event_name == 'pull_request' }}
-        shell: bash
-        run: |
-          TAG_NAME="${{ steps.bump.outputs.new_version }}"
-          git tag -a "$TAG_NAME" -m "Release: $TAG_NAME"
-          git push origin "$TAG_NAME"
       
-      # now with a fresh tag, generate a changelog
-      - name: Commit version bump with changelog
-        id: changelog
+      # Only merge commits get a tag
+      - name: Create Release Branch
+        id: release_branch
+        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged == true && needs.validate.outputs.bump_type != 'dev' && needs.validate.outputs.bump_type != 'none' }}
         shell: bash
-        if: ${{ needs.validate.outputs.bump_type != 'dev' }}
         run: |
-          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~2 2>/dev/null || echo "")
-          auto-changelog --config cfg/auto-changelog --starting-version $PREV_TAG --output RELEASE_NOTES.md
+          # Authenticate with GitHub CLI
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+          
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          RELEASE_BRANCH="release/$NEW_VERSION"
+          
+          # Create a release branch from main
+          git fetch origin main
+          git checkout -b $RELEASE_BRANCH origin/main
+          
+          PREV_TAG=$(git describe --tags --abbrev=0)
+          
+          # Update version in the file
+          echo "$NEW_VERSION" > pkg/version.txt
+          
+          # Generate changelog from previous tag to current
+          auto-changelog --config cfg/auto-changelog --starting-commit $PREV_TAG --output RELEASE_NOTES.md
           auto-changelog --config cfg/auto-changelog --output CHANGELOG.md
-
+          
+          # Commit the changelog and version bump
+          git add CHANGELOG.md pkg/version.txt
+          git commit -m "chore: release $NEW_VERSION"
+          
+          # Create annotated tag on this commit
+          git tag -a "$NEW_VERSION" -m "Release: $NEW_VERSION"
+          
+          # Push the branch and tag
+          git push origin $RELEASE_BRANCH
+          git push origin "$NEW_VERSION"
+          
+          # Create a PR from release branch to main
+          PR_URL=$(gh pr create --title "Release $NEW_VERSION" \
+                     --body "Automated release PR for version $NEW_VERSION" \
+                     --base main \
+                     --head $RELEASE_BRANCH \
+                     --label "release")
+          
+          # Auto-merge the PR
+          PR_NUMBER=$(echo $PR_URL | grep -o '[0-9]*$')
+          if [ ! -z "$PR_NUMBER" ]; then
+            echo "Created PR #$PR_NUMBER, attempting to merge it"
+            gh pr merge $PR_NUMBER --merge --delete-branch --admin
+          else
+            echo "Could not extract PR number from: $PR_URL"
+          fi
+          
+          # Store changelog content for release body
           echo "content<<EOF" >> $GITHUB_OUTPUT
           cat RELEASE_NOTES.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Generate Dev Release Notes
+        id: dev_changelog
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        shell: bash
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0)
+          auto-changelog --config cfg/auto-changelog --starting-commit $PREV_TAG --output RELEASE_NOTES.md
           
-          git add CHANGELOG.md pkg/version.txt
-          git commit -m "chore: release ${{ steps.bump.outputs.new_version }}"
-          git push origin HEAD:${GITHUB_REF#refs/heads/}}
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          cat RELEASE_NOTES.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       # Build freshly bumped version
       - name: Build packages
@@ -288,4 +333,8 @@ jobs:
           prerelease: false
           tag_name: ${{ needs.version.outputs.new_version }}
           body: |
-            ${{ needs.version.outputs.changelog }}
+            if ${{ needs.validate.outputs.bump_type == 'dev' }}; then
+              ${{ needs.version.outputs.dev_changelog }}
+            else
+              ${{ needs.version.outputs.changelog }}
+            fi
