@@ -130,9 +130,7 @@ jobs:
         id: parse_version
         shell: bash # sh doesn't support BASH_REMATCH
         run: |
-          # cmake bakes in the version into the binary, so we need to parse it from the file
           CURRENT_VERSION=$(cat pkg/version.txt | tr -d '[:space:]')
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           
           # Extract semantic version parts using regex
           if [[ "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
@@ -188,7 +186,11 @@ jobs:
       # Only merge commits get a tag
       - name: Create Release Branch
         id: release_branch
-        if: ${{ github.event_name == 'pull_request' && github.event.pull_request.merged == true && needs.validate.outputs.bump_type != 'dev' && needs.validate.outputs.bump_type != 'none' }}
+        if: >-
+          ${{ github.event_name == 'pull_request'
+            && github.event.pull_request.merged == true
+            && needs.validate.outputs.bump_type != 'dev'
+            && needs.validate.outputs.bump_type != 'none' }}
         shell: bash
         run: |
           # Authenticate with GitHub CLI
