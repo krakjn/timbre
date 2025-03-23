@@ -9,7 +9,7 @@ jobs:
     name: Lint, Build, and Test
     runs-on: ubuntu-latest # Host runner
     container:
-      image: ghcr.io/krakjn/timbre
+      image: ghcr.io/ballast-dev/timbre
       credentials:
         username: krakjn
         password: ${{ secrets.TIMBRE_TOKEN }} # has permissions

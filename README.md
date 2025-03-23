@@ -22,8 +22,8 @@ ls -l .timbre/
   debug.log
 ```
 
-[![CI](https://github.com/krakjn/timbre/actions/workflows/ci.yml/badge.svg)](https://github.com/krakjn/timbre/actions/workflows/ci.yml)
-[![Release](https://github.com/krakjn/timbre/actions/workflows/release.yml/badge.svg)](https://github.com/krakjn/timbre/actions/workflows/release.yml)
+[![CI](https://github.com/ballast-dev/timbre/actions/workflows/ci.yml/badge.svg)](https://github.com/ballast-dev/timbre/actions/workflows/ci.yml)
+[![Release](https://github.com/ballast-dev/timbre/actions/workflows/release.yml/badge.svg)](https://github.com/ballast-dev/timbre/actions/workflows/release.yml)
 
 ## Quick Start
 
@@ -87,7 +87,7 @@ error = "error|exception|fail"
     - [Download Docker Desktop](https://www.docker.com) (for Windows and Mac)
     - Use your package manager in Linux, i.e. `apt`, `pacman`, etc...
     - Or just run: `curl -fsSL https://get.docker.com | sh -`
-1. Get code, `git clone github.com/krakjn/timbre.git && cd timbre` 
+1. Get code, `git clone github.com/ballast-dev/timbre.git && cd timbre` 
 1. Build image, `docker build -t timbre:latest - < Dockerfile`
 1. Jump into image, 
 
