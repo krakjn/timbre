@@ -215,14 +215,12 @@ jobs:
           echo "$NEW_VERSION" > pkg/version.txt
           
           # Generate changelog from previous tag to current
-          auto-changelog --config cfg/auto-changelog --starting-version $PREV_TAG --output RELEASE_NOTES.md
+          CURRENT_DELTA=$(auto-changelog --config cfg/auto-changelog --starting-version $PREV_TAG --stdout)
           auto-changelog --config cfg/auto-changelog --output CHANGELOG.md
           
-          # Commit the changelog and version bump
+          # Bag and tag the release
           git add CHANGELOG.md pkg/version.txt
           git commit -m "chore: release $NEW_VERSION"
-          
-          # Create annotated tag on this commit
           git tag -a "$NEW_VERSION" -m "Release: $NEW_VERSION"
           
           # Push the branch and tag
@@ -244,9 +242,9 @@ jobs:
             echo "Could not extract PR number from: $PR_URL"
           fi
           
-          # Store changelog content for release body
+          # Output is multiline, so we need to use a HEREDOC
           echo "content<<EOF" >> $GITHUB_OUTPUT
-          cat RELEASE_NOTES.md >> $GITHUB_OUTPUT
+          echo "$CURRENT_DELTA" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Generate Dev Release Notes
@@ -255,10 +253,10 @@ jobs:
         shell: bash
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0)
-          auto-changelog --config cfg/auto-changelog --starting-version $PREV_TAG --output RELEASE_NOTES.md
+          CURRENT_DELTA=$(auto-changelog --config cfg/auto-changelog --starting-version $PREV_TAG --stdout)
           
           echo "content<<EOF" >> $GITHUB_OUTPUT
-          cat RELEASE_NOTES.md >> $GITHUB_OUTPUT
+          echo "$CURRENT_DELTA" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
       # Build freshly bumped version
