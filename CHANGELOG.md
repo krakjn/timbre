@@ -61,7 +61,7 @@ All notable changes to this project will be documented in this file. Dates are d
 - feat(refactor): static_analysis and better version pipeline [`d106024`](https://github.com/ballast-dev/timbre/commit/d106024258c4e92a5960d6f375002d8cf69a6042)
 - chore: bump version to 0.1.0+15 [`1bfc9f7`](https://github.com/ballast-dev/timbre/commit/1bfc9f7a4eeb94a2f7b4cd55f59060455a146a6a)
 
-#### 0.1.0+37
+#### 0.1.0+47
 
 > 6 March 2025
 
@@ -101,3 +101,9 @@ All notable changes to this project will be documented in this file. Dates are d
 - ci(release): need to run in contianer [`8e12df7`](https://github.com/ballast-dev/timbre/commit/8e12df70aae648ce85a1d2820450b86e49801564)
 - ci: need bash for BASH_REMATCH [`cb553e8`](https://github.com/ballast-dev/timbre/commit/cb553e88b2ab6c3498b41b6f84600554e2f1067a)
 - ci: bash &gt; sh [`83b7caf`](https://github.com/ballast-dev/timbre/commit/83b7caf6361f1314b79872894de06abeb72ccbcd)
+- ci: github is particular with outputs [`fe4ad76`](https://github.com/ballast-dev/timbre/commit/fe4ad76d667f96667fb8b3a7a2866d23a37c1db3)
+- ci: trying to output changelog on release [`57519cb`](https://github.com/ballast-dev/timbre/commit/57519cb1bc97eaee25e3acfc7b1b186444503021)
+- ci(release): use regular EOF [`af87b88`](https://github.com/ballast-dev/timbre/commit/af87b88870e518821d3ffb5aa1279343e1627556)
+- docs: update pull request template [`6377e14`](https://github.com/ballast-dev/timbre/commit/6377e14b7755b90620137bc47a673b90b8bf9e37)
+- docs: update pull-request template again [`e653bdb`](https://github.com/ballast-dev/timbre/commit/e653bdb314fd988c39c22a114a0bac67a65de178)
+- ci: output changelog in the proper step [`95095d9`](https://github.com/ballast-dev/timbre/commit/95095d9ea750f10259962260c5ae7c4297f45a66)
