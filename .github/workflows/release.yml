@@ -199,7 +199,7 @@ jobs:
             && needs.validate.outputs.bump_type != 'dev'
             && needs.validate.outputs.bump_type != 'none' }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.TIMBRE_TOKEN }}
         shell: bash
         run: |
           NEW_VERSION="${{ steps.bump.outputs.new_version }}"
