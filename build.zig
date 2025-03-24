@@ -344,7 +344,11 @@ pub fn generateVersionFile(b: *std.Build) []const u8 {
 
     return if (is_dev)
         // NOTE: debpkg-deb does not like `_` or `-` in the version string
-        std.fmt.allocPrint(b.allocator, "{s}+{s}", .{ std.mem.trim(u8, version_contents, "\n\r"), git_sha }) catch unreachable
+        std.fmt.allocPrint(b.allocator, "{s}+{s}", .{ strip(version_contents), git_sha }) catch unreachable
     else
-        std.mem.trim(u8, version_contents, "\n\r");
+        std.fmt.allocPrint(b.allocator, "{s}", .{strip(version_contents)}) catch unreachable;
+}
+
+fn strip(str: []const u8) []const u8 {
+    return std.mem.trim(u8, str, "\n\r");
 }
