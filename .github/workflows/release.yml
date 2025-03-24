@@ -198,11 +198,10 @@ jobs:
             && github.event.pull_request.merged == true
             && needs.validate.outputs.bump_type != 'dev'
             && needs.validate.outputs.bump_type != 'none' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          # Authenticate with GitHub CLI
-          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
-          
           NEW_VERSION="${{ steps.bump.outputs.new_version }}"
           RELEASE_BRANCH="release/$NEW_VERSION"
           
