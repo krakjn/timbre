@@ -11,10 +11,6 @@ ARCH="$1"
 VERSION="$2"
 PKG_DIR="zig-out/pkg/$ARCH"
 
-echo "ARCH: $ARCH"
-echo "VERSION: $VERSION"
-echo "PKG_DIR: $PKG_DIR"
-
 echo "Building package for $ARCH with version $VERSION"
 
 mkdir -p "$PKG_DIR/DEBIAN"
