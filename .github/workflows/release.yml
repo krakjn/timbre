@@ -238,7 +238,7 @@ jobs:
           
           # Auto-merge the PR
           PR_NUMBER=$(echo $PR_URL | grep -o '[0-9]*$')
-          if [ ! -z "$PR_NUMBER" ]; then
+          if [ -n "$PR_NUMBER" ]; then
             echo "Created PR #$PR_NUMBER, attempting to merge it"
             gh pr merge $PR_NUMBER --merge --delete-branch --admin
           else
