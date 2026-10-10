@@ -1,0 +1,68 @@
+site_name: Timbre
+site_description: Turn noisy program output into structured, categorized log files.
+site_url: https://krakjn.github.io/timbre/
+repo_url: https://github.com/krakjn/timbre
+repo_name: krakjn/timbre
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Usage: usage.md
+  - Configuration: configuration.md
+  - Building: building.md
+  - Architecture: architecture.md
+  - Development:
+      - Workflow: workflow.md
+      - Versioning: versioning.md
+      - Commit convention: commit_convention.md
+  - Contributing: CONTRIBUTING.md
+  - Publishing: publishing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/krakjn/timbre

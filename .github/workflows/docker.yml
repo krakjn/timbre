@@ -1,34 +1,38 @@
 name: docker
+
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'Dockerfile'
-
+      - Dockerfile
 
 jobs:
   build-image:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-    - name: Docker Setup
-      shell: bash
-      run: |
-        docker buildx create --name cacher --driver docker-container
-        echo "${{ secrets.BALLAST_DEV_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - uses: actions/checkout@v5
 
-    - uses: actions/checkout@v5
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build and Push Docker Image
-      shell: bash
-      run: |
-        export IMAGE_NAME='ghcr.io/ballast-dev/timbre'
-        docker buildx build \
-          --builder cacher \
-          --push \
-          --platform linux/amd64 \
-          --tag "${IMAGE_NAME}" \
-          --build-arg BUILDKIT_INLINE_CACHE=1 \
-          --cache-from "type=registry,ref=${IMAGE_NAME}:buildcache" \
-          --cache-to "type=registry,ref=${IMAGE_NAME}:buildcache,mode=max" \
-          - < Dockerfile
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ghcr.io/${{ github.repository }}:latest
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max

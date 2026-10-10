@@ -1,7 +1,8 @@
 # Timbre Architecture
 
 ## Overview
-Timbre is a modern C++ application designed for high performance and reliability. It uses a modular architecture with clear separation of concerns, built with Zig's build system.
+
+Timbre is a Zig application that filters stdin through regex rules and writes categorized log files. The codebase is small and modular: CLI parsing, configuration, logging, and the core line-matching loop are separate compilation units, built with Zig’s native build system.
 
 ## Component Architecture
 
@@ -36,11 +37,12 @@ graph TB
 - Version management system
 
 ### Core Components
-- **CLI Interface**: Command-line interface using CLI11
-- **Config Manager**: TOML-based configuration system
-- **Core Engine**: Main application logic
-- **Logger**: Asynchronous logging system
-- **Version System**: Semantic versioning with dev/release management
+
+- **CLI** (`src/cli.zig`): Argument parsing and help text
+- **Config** (`src/config.zig`): TOML configuration and log-level rules
+- **Log** (`src/log.zig`): File output and terminal behavior
+- **Timbre** (`src/timbre.zig`): Core filtering pipeline
+- **Main** (`src/main.zig`): Entry point and wiring
 
 ## Build Configurations
 
@@ -80,24 +82,20 @@ graph LR
     Merge --> Release[Create Release]
 ```
 
-## File Organization
+## File organization
+
 ```
 timbre/
-├── inc/               # Public headers
-│   ├── timbre/       # Core headers
-│   ├── toml/         # TOML parser
-│   └── CLI/          # CLI11 library
-├── src/              # Implementation files
-│   ├── main.cpp      # Entry point
-│   ├── timbre.cpp    # Core functionality
-│   ├── config.cpp    # Configuration handling
-│   └── log.cpp       # Logging system
-├── tests/            # Test suite
-│   ├── test.zig      # Zig test runner
-│   ├── interface.c   # C interface tests
-│   └── interface.h   # Test headers
-├── docs/             # Documentation
-└── pkg/              # Packaging
-    ├── build_deb.sh  # Debian package builder
-    └── version.txt   # Version file
+├── src/
+│   ├── main.zig              # Entry point
+│   ├── timbre.zig            # Core filtering
+│   ├── config.zig            # TOML configuration
+│   ├── log.zig               # Log file I/O
+│   ├── cli.zig               # CLI parsing
+│   └── integration_test.zig  # Integration tests
+├── regex/                    # Bundled regex library (Zig)
+├── cfg/                      # Example timbre.toml
+├── docs/                     # Documentation (MkDocs source)
+├── build.zig                 # Build definition
+└── Dockerfile                # CI / dev container image
 ``` 

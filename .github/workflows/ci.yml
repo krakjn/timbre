@@ -2,36 +2,32 @@ name: ci
 
 on:
   push:
+  pull_request:
 
 jobs:
   timbre:
     name: Timbre lint, build, and ship
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/ballast-dev/timbre
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.BALLAST_DEV_TOKEN }}
     permissions:
       contents: write
       packages: write
     steps:
       - uses: actions/checkout@v5
 
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.15.2
+
       - name: Setup Git
         run: |
-          # Prevent ownership errors in container environments
           git config --global --add safe.directory "${GITHUB_WORKSPACE}"
-          
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'github-actions@github.com'
-      
 
       - name: Test and Build
         run: |
           zig build test
           zig build all
-
 
       - name: Create release archives
         if: startsWith(github.ref, 'refs/tags/')

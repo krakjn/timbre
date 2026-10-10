@@ -2,7 +2,10 @@
 
 Debugging a program with tons of output? Pass them to `timbre`
 
-[![CI](https://github.com/ballast-dev/timbre/actions/workflows/ci.yml/badge.svg)](https://github.com/ballast-dev/timbre/actions/workflows/ci.yml)
+[![CI](https://github.com/krakjn/timbre/actions/workflows/ci.yml/badge.svg)](https://github.com/krakjn/timbre/actions/workflows/ci.yml)
+[![Docs](https://github.com/krakjn/timbre/actions/workflows/docs.yml/badge.svg)](https://github.com/krakjn/timbre/actions/workflows/docs.yml)
+
+**Documentation:** [https://krakjn.github.io/timbre/](https://krakjn.github.io/timbre/) (built and published by the [docs workflow](.github/workflows/docs.yml) on each push to `main`). Local preview: `pip install -r requirements-docs.txt && mkdocs serve`
 
 ## Features
 
@@ -62,7 +65,7 @@ error = "error|exception|fail"
     - [Download Docker Desktop](https://www.docker.com) (for Windows and Mac)
     - Use your package manager in Linux, i.e. `apt`, `pacman`, etc...
     - Or just run: `curl -fsSL https://get.docker.com | sh -`
-1. Get code, `git clone github.com/ballast-dev/timbre.git && cd timbre` 
+1. Get code, `git clone https://github.com/krakjn/timbre.git && cd timbre` 
 1. Build image, `docker build -t timbre:latest - < Dockerfile`
 1. Jump into image, 
 
