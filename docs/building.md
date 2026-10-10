@@ -44,7 +44,7 @@ Tagged releases on GitHub produce `.tar.xz` archives per platform via the CI wor
 
 ## Container image
 
-CI uses `ghcr.io/ballast-dev/timbre`. You can build the same image locally:
+CI publishes `ghcr.io/krakjn/timbre` (this repository’s GitHub Container Registry image). Build locally with:
 
 ```bash
 docker build -t timbre:latest - < Dockerfile

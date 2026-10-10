@@ -1,4 +1,4 @@
-IMAGE := "ghcr.io/ballast-dev/timbre"
+IMAGE := "ghcr.io/krakjn/timbre"
 _:
   @just --list
 
