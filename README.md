@@ -4,6 +4,8 @@ Debugging a program with tons of output? Pass them to `timbre`
 
 [![CI](https://github.com/ballast-dev/timbre/actions/workflows/ci.yml/badge.svg)](https://github.com/ballast-dev/timbre/actions/workflows/ci.yml)
 
+**Documentation:** [https://krakjn.github.io/timbre/](https://krakjn.github.io/timbre/) — build locally with `pip install -r requirements-docs.txt && mkdocs serve`
+
 ## Features
 
 - Pure zig, even the regex lib 
