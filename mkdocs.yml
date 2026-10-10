@@ -60,6 +60,7 @@ nav:
       - Versioning: versioning.md
       - Commit convention: commit_convention.md
   - Contributing: CONTRIBUTING.md
+  - Publishing: publishing.md
 
 extra:
   social:

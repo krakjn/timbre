@@ -3,8 +3,9 @@
 Debugging a program with tons of output? Pass them to `timbre`
 
 [![CI](https://github.com/ballast-dev/timbre/actions/workflows/ci.yml/badge.svg)](https://github.com/ballast-dev/timbre/actions/workflows/ci.yml)
+[![Docs](https://github.com/krakjn/timbre/actions/workflows/docs.yml/badge.svg)](https://github.com/krakjn/timbre/actions/workflows/docs.yml)
 
-**Documentation:** [https://krakjn.github.io/timbre/](https://krakjn.github.io/timbre/) — build locally with `pip install -r requirements-docs.txt && mkdocs serve`
+**Documentation:** [https://krakjn.github.io/timbre/](https://krakjn.github.io/timbre/) (built and published by the [docs workflow](.github/workflows/docs.yml) on each push to `main`). Local preview: `pip install -r requirements-docs.txt && mkdocs serve`
 
 ## Features
 
